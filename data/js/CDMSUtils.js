@@ -1,6 +1,6 @@
 // Javascript support goes here...
 
-var useDebugging = false;
+let useDebugging = false;
 
 function mydebug(msg) {
   if (useDebugging) {
@@ -10,9 +10,9 @@ function mydebug(msg) {
 
 function jsLoadSetups(csetup) {
   // Load default setups from cookies
-  if ($.cookie('cdms_v2_setups')) {
-    mydebug("Got Setup: " + $.cookie('cdms_v2_setups'));
-    var cs = $.parseJSON($.cookie('cdms_v2_setups'));
+  if ($.cookie('.cdms_v4_setups')) {
+    mydebug("Got Setup: " + $.cookie('.cdms_v4_setups'));
+    var cs = $.parseJSON($.cookie('.cdms_v4_setups'));
     csetup.setupMode = cs.setupMode;
     csetup.setupTeeth = cs.setupTeeth;
     csetup.setupMounts = cs.setupMounts;
@@ -36,7 +36,7 @@ function jsSaveSetups(csetup) {
        };
   var setupJson = JSON.stringify(csl);
   mydebug(setupJson);
-  $.cookie('cdms_v2_setups', setupJson, {expires:7});
+  $.cookie('.cdms_v4_setups', setupJson, {expires:7});
 }
 
 function getButtonID(e) {
@@ -51,12 +51,20 @@ function getButtonID(e) {
 
 function buttonFeedback()
 {
-  var processingInstance = Processing.getInstanceById('CDMS');
+/// TODO
+  // p5.getitem ????
+  var processingInstance = getItem('CDMS');
+  var setupMode = 0;
+  var passesPerFrame = 0;
+  var drawDirection = 0;
+  var isMoving = 0;
 
-  var setupMode = processingInstance.getSetupMode();
-  var passesPerFrame = processingInstance.getPassesPerFrame();
-  var drawDirection = processingInstance.getDrawDirection();
-  var isMoving = processingInstance.getIsMoving();
+  if (processingInstance !== null && processingInstance !== undefined){
+    setupMode = processingInstance.getSetupMode();
+    passesPerFrame = processingInstance.getPassesPerFrame();
+    drawDirection = processingInstance.getDrawDirection();
+    isMoving = processingInstance.getIsMoving();
+  } 
 
   var playMode = 'pause';
   if (isMoving && passesPerFrame != 0) {
@@ -86,9 +94,8 @@ function setupButtons() {
     var tokens = id.split(':');
     var cmd = tokens[1];
     var subCmd = tokens.length >= 2? tokens[2] : '';
-    var processingInstance = Processing.getInstanceById('CDMS');
-
-    processingInstance.issueCmd(cmd, subCmd);
+    
+    issueCmd(cmd, subCmd);
     buttonFeedback();
   });
   $('.credits-btn').on('click', function(evt) {
@@ -99,9 +106,15 @@ function setupButtons() {
   // var ctx = canvas.getContext("2d");
   // ctx.scale(0.5,0.5);
 }
-
+/// TODO snappper werd verwijderd, geen idee of we dit nog nodig hebben
 function makeSnapshot(pgraphics, rotation, fileName) 
 {
-   var pi = Processing.getInstanceById('Snapper');
-   pi.snapPicture(pgraphics, rotation, fileName);
+  push();
+     translate(width/2, height/2);
+     rotate(rotation);
+     save(pgraphics,fileName );
+  pop();
+
 }
+
+///TODO mail saved canvas

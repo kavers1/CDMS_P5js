@@ -1,6 +1,6 @@
-boolean drawHelp = false;
-long    helpStartMS = millis();
-String[] helpLines = {
+let drawHelp = false;
+let helpStartMS = {} ;//millis();
+let helpLines = [
     "Keyboard Shortcuts:",
     "",
     "0-9    set drawing speed",
@@ -11,20 +11,20 @@ String[] helpLines = {
     "< >    change pen width",
     "/      invert connecting rod",
     "~      draw entire cycle",
-};
+];
 
-void helpDraw() 
+function helpDraw() 
 {
   if (drawHelp) {
-    long elapsed = millis() - helpStartMS;
-    float alpha = constrain(map(elapsed, 10*1000, 13*1000, 1, 0),0,1);
+    let elapsed = millis() - helpStartMS;
+    let alpha = constrain(map(elapsed, 10*1000, 13*1000, 1, 0),0,1);
     if (alpha <= 0.0001) {
       drawHelp = false;
     }
     noStroke();
 
-    float hx = width-500*seventyTwoScale;
-    float hy = 30*seventyTwoScale-100*constrain(map(elapsed,0,300,1,0),0,1);
+    let hx = width-500*seventyTwoScale;
+    let hy = 30*seventyTwoScale-100*constrain(map(elapsed,0,300,1,0),0,1);
     
     fill(255,alpha*alpha*192);
     rect(hx-8, 0, width-(hx-8), hy + 22*helpLines.length);
@@ -33,13 +33,13 @@ void helpDraw()
 
     textFont(hFont);
     textAlign(LEFT);
-    for (int i = 0; i < helpLines.length; ++i) {
+    for ( i = 0; i < helpLines.length; ++i) {
       text(helpLines[i], hx, hy+22*i);
     }
   }
 }
 
-void toggleHelp() 
+function toggleHelp() 
 {
   if (drawHelp) {
     drawHelp = false;

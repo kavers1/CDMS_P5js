@@ -1,15 +1,17 @@
 // Snapper - for paper snapshots
 
-void setup() {
-    size(648,648);
+function setup() {
+    let cnvs = createCanvas(648,648);
+    cnvs.parent('p5jsCanvas');
+
     noLoop();
 }
 
-void draw() {
+function draw() {
     background(255);
 }
 
-void snapPicture(PGraphics paper, float rotation, String filename) {
+function snapPicture( paper,  rotation,  filename) {
    background(255);
 
    pushMatrix();
@@ -18,4 +20,5 @@ void snapPicture(PGraphics paper, float rotation, String filename) {
       image(paper, -paper.width/2, -paper.width/2);
    popMatrix();
    save(filename);
+   saveCanvas(filename, 'jpg');
 }
