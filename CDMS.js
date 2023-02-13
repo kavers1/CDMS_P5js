@@ -80,6 +80,7 @@ let penMount = {};
 let crankRail = {};
 let anchorRail = {};
 let pivotRail = {};
+let freeRail = {};
 
 let cRod = {};
 let penRig = {};
@@ -97,26 +98,36 @@ let hiresMode = false;
 let isStarted = false;
 let isMoving = false;
 let penRaised = true;
+let lastPenRaised = true;
 
-let lastPX = -1, lastPY = -1;
+let lastPX = -1;
+let lastPY = -1;
 let myFrameCount = 0;
 let myLastFrame = -1;
 let drawDirection = 1;
 let recordCtr = 0;
 
+let backgroundColor = '#808080';
+let paperColor = '#ffffff';
+let foregroundColor = '#c8c8c8';
+let themecolor = {};
+let selectedTheme = {};
 let penColors = [];
 let penColor = {};
 let penColorIdx = 0;
+let freeMode = false;
 
 let penWidths = [0.5, 1, 2, 3, 5, 7];
 let penWidth = 1;
 let penWidthIdx = 1;
 let loadError = 0; // 1 = gears can't snug
+
 function preload() {
   titlePic = loadImage("../data/title_dark.png");
 
 }
 function setup() {
+  selectedTheme = color(128,128,128,255); 
   // size(window.innerWidth, window.innerHeight); 
   penColors = [color(0,0,0), color(192,0,0), color(0,128,0), color(0,0,128), color(192,0,192)];
   penColor = color(0,0,0,1);
@@ -225,6 +236,7 @@ function drawingSetup( setupIdx,  resetPaper)
   if (resetPaper) {
     isStarted = false;
   }
+  isStarted = false;
   penRaised = true;
   myFrameCount = 0;
 
@@ -289,11 +301,13 @@ function drawingSetup( setupIdx,  resetPaper)
     
     // Always need these...
     turnTable = addGear(0,"Turntable");
-    crank = addGear(1,"Crank");    crank.contributesToCycle = false;
+    crank = addGear(1,"Crank");    
+    crank.contributesToCycle = false;
   
     // These are optional
     anchorTable = addGear(2,"AnchorTable");
-    anchorHub = addGear(3,"AnchorHub"); anchorHub.contributesToCycle = false;
+    anchorHub = addGear(3,"AnchorHub"); 
+    anchorHub.contributesToCycle = false;
     orbit = addGear(4,"Orbit");
   
     orbit.isMoving = true;
@@ -480,10 +494,22 @@ function drawingSetup( setupIdx,  resetPaper)
   
 }
 
-
+function getColor(level, alpha=255)
+{
+  let clr = [level,level,level,alpha].map((value,index)=>{return int(value * themeColor.levels[index] / 255);});
+  
+  return color(clr);
+}
 
 function draw() 
 {
+  
+  if (freeMode){
+    themeColor = color('#ffff00');
+  }
+  else {
+    themeColor =selectedTheme;
+  }
 
 
   // Crank the machine a few times, based on current passesPerFrame - this generates new gear positions and drawing output
@@ -513,7 +539,7 @@ function draw()
         paper.strokeWeight(penWidth);
         // paper.rect(10, 10, paperWidth-20, paperWidth-20);
         isStarted = true;
-      } else if (!penRaised) {
+      } else if (!penRaised && !lastPenRaised) {
         paper.line(lastPX, lastPY, px, py);
         // console.log('Line from ',lastPX,lastPY,' to ',px,py);
       }
@@ -521,10 +547,12 @@ function draw()
       //paper.endDraw();
       lastPX = px;
       lastPY = py;
+      lastPenRaised = penRaised;
       // penRaised = false;
       if (myLastFrame != -1 && myFrameCount >= myLastFrame) {
         myLastFrame = -1;
         passesPerFrame = 1;
+        penRaised = true;
         isMoving = false;
         buttonFeedback();
         break;
@@ -533,13 +561,19 @@ function draw()
   }
   // console.log ('draw machine background');
   // Draw the machine onscreen in it's current state
-  background(128);
+  background(backgroundColor); // set color '#808080'
   push();
-    image(titlePic, 0, height-titlePic.height);
+    image(titlePic, 20, height-titlePic.height);
     // console.log('draw labels');
     drawFulcrumLabels();
+    // display number of cycles
+    // TODO fix font size and color result based on number of cycle (RED,orange,green background)
+    fill(0, 0, 255);
+    textFont(gFont);
+    textAlign(CENTER, CENTER);
+    text( str(computeCyclicRotations()),titlePic.width + 40,height-titlePic.height/2);
 
-    fill(200);
+    fill(foregroundColor); //set color '#c8c8c8'
     noStroke();
 
     let logoScale = inchesToPoints/72.0;
@@ -547,7 +581,11 @@ function draw()
     for ( var ch of rails) {
        ch.draw();
     }
-  
+    if (freeMode) {
+      for (var mp of activeMountPoints){
+        mp.draw();
+      }
+    }
     // discPoint.draw();
     // console.log('gears');
     for ( let g of activeGears) {
@@ -659,11 +697,11 @@ function keyPressed() {
     invertConnectingRod();
     break;
   case '+':
-    /// TODO pendown
+    /// DONE pendown
     penRaised = false;
     break;
   case '-':
-    /// TODO penup
+    /// DONE penup
     penRaised = true;
     break;
   case '=':
@@ -682,9 +720,9 @@ function keyPressed() {
     case SHIFT:
       isShifting = true;
       break;
-    case 33:
-      /// TODO phase -- if slected gear
-    case 34:
+    case 33: //pgdwn
+      /// TODO phase -- if selected gear
+    case 34: //pgup
       /// TODO phase ++ if selected gear
       break;
     default:
@@ -700,13 +738,20 @@ function mouseDragged()
 }
 
 function mouseReleased() {
-  isDragging = false;
+  if (freeMode){
+    doDrop();
+  }
+  else{
+    isDragging = false;
+  }
 }
 
 function mousePressed() 
 {
-  deselect();
-
+  if (!freeMode || (mouseButton === RIGHT)){
+    deselect();
+  }
+  
   for ( let mp of activeMountPoints) {
     if (mp.isClicked(mouseX, mouseY)) {
       mp.select();
@@ -737,8 +782,55 @@ function mousePressed()
         deselect();
         g.select();
         selectedObject = g;
+        return;
     }
+  }
+  // nothing selected or clicked on
+  // if in freemode add new mount point at mouse point and start tracking it 
+  if (freeMode){
+    let mp = new MountPoint("FREEMP",mouseX,mouseY);
+    selectedObject = mp;
+    console.log("added free mountpoint");
+    activeMountPoints.push(mp);
+    return;
   }
 }
 
+function toggleFreeMode() 
+{
+  if (freeMode) {
+    freeMode = false;
+  } else {
+    selectedTheme = themeColor;
+    freeMode = true;
+  }
+}
 
+function doDrop()
+{
+  // based on mouse position get X-Y
+  // add lineair rail from center if no other point or gear is selected
+  // else add lineair rail from selected point
+  // extend rail to edge minus minimum distance
+  // add mountpoint on rail
+  if (selectedObject != null) { // lineair rail from center point selected object to mouse point
+    x1 = selectedObject.x;
+    y1 = selectedObject.y;
+    x2 = mouseX;
+    y2 = mouseY;
+  }
+  else{ // linair rail from center point to mouse pount
+    x1 = discPoint.x;
+    y1 = discPoint.y;
+    x2 = mouseX;
+    y2 = mouseY;    
+  }
+  let dx = x1 - x2;
+  let dy = y1 - y2;
+  let a = atan2(dy, dx);
+  let l = paperWidth/4;
+  let px = x2 + cos(a)*l;
+  let py = y2 + sin(a)*l;
+  freeRail = new LineRail(px/ inchesToPoints,py/ inchesToPoints,x2/ inchesToPoints,y2/ inchesToPoints);
+  rails.push(freeRail);
+}

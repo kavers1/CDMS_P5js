@@ -41,6 +41,9 @@ class MountPoint {
     this.typeStr = "MP";
     this.isFixed = false;
     this.selected = false;
+    this.forgroundColor = '#b4b4b4';
+    this.strokeColor = '#323232';
+    this.strokeSelectedColor = '#646464';
 
     if (arguments.length == 3){
       this.typeStr = typeStr;
@@ -149,11 +152,11 @@ class MountPoint {
       this.itsChannel.draw();
     } 
     if (this.selected) {
-      fill(180,192);
-      stroke(50);
+      fill(getColor(180,192));// sets color 'b4b4b4c0'
+      stroke(getColor(50));// sets color '#323232'
     } else {
-      fill(180,192);
-      stroke(100);
+      fill(getColor(180,192));// sets color '#b4b4b4c0'
+      stroke(getColor(100));// sets color '#646464'
     }
     strokeWeight(this.selected? 4 : 2);
     ellipse(p.x, p.y, this.radius, this.radius);
@@ -256,17 +259,17 @@ class ConnectingRod {
     this.itsAnchor.draw();
 
     noFill();
-    let shade = this.selected? 100 : 200;
+    let shade = this.selected? 100 : 200; 
     let alfa = this.selected? 192 : 192;
-    stroke(shade, alfa);
+    stroke(getColor(shade, alfa)); // sets color
     strokeWeight(0.33 * inchesToPoints);
     this.armAngle = atan2(sp.y - ap.y, sp.x - ap.x);
     // println("Drawing arm " + ap.x/inchesToPoints +" " + ap.y/inchesToPoints + " --> " + sp.x/inchesToPoints + " " + sp.y/inchesToPoints);
     let L = 18 * inchesToPoints;
     line(ap.x,ap.y, ap.x+cos(this.armAngle)*L, ap.y+sin(this.armAngle)*L);
     
-    stroke(100,100,100,128);
-    fill(100,100,100);
+    stroke(getColor(100,128));// sets color '#64646480'
+    fill(getColor(100));// sets color '#646464'
     strokeWeight(0.5);
     // float notchOffset = 0.75*inchesToPoints;
     textFont(nFont);
@@ -431,9 +434,9 @@ class PenRig  {
 
     noFill();
     if (this.selected)
-      stroke(penColor,128);
+      stroke(penColor,128);// sets color
     else
-      stroke(penColor, 64);
+      stroke(penColor, 64);// sets color 
     strokeWeight(0.33 * inchesToPoints);
     line(ap.x, ap.y, ep.x, ep.y);
   
@@ -443,10 +446,10 @@ class PenRig  {
     push();
       translate(ep.x,ep.y);
       rotate(atan2(ap.y-ep.y,ap.x-ep.x));
-      fill(255);
+      fill(getColor(255));// sets color '#ffffff'
       ellipse(0,0,nibRad,nibRad);
       noFill();
-      stroke(192);
+      stroke(getColor(192));// sets color '#c0c0c0'
       line(-nibRad,0,nibRad,0);
       line(0,nibRad,0,-nibRad);
       
@@ -456,8 +459,8 @@ class PenRig  {
       noStroke();
       ellipse(0,0,penWidth / 2, penWidth / 2);
 
-      stroke(96);
-      fill(64);
+      stroke(getColor(96));// sets color '#606060'
+      fill(getColor(64));// sets color '#404040'
        for (let i = 2; i < 18; ++i) {
         let x = this.notchToDist(1+i/2.0); // 2, 2.5, 3, 3.5, ....9,5
         line(x, 6, x, -(6+(i % 2 == 0? 2 : 0)));
@@ -479,13 +482,61 @@ class LineRail  {
     this.y2 = y2 * inchesToPoints;
   }
   getPosition( ratio) {
-//    // console.log('Getpos linerail # x:',this.x1 + (this.x2 - this.x1) * ratio, ' y:',this.y1 + (this.y2 - this.y1) * ratio);
+  // console.log('Getpos linerail # x:',this.x1 + (this.x2 - this.x1) * ratio, ' y:',this.y1 + (this.y2 - this.y1) * ratio);
     return createVector(this.x1 + (this.x2 - this.x1) * ratio, this.y1 + (this.y2 - this.y1) * ratio);
   }  
+  // shortest distance from point to rail
+  // https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
+  distTo(pt){
+    let x1 = this.x1;
+    let y1 = this.y1;
+    let x2 = this.x2;
+    let y2 = this.y2;
+    let x = pt.x;
+    let y = pt.y;
+    let d1 = dist(this.x1,this.y1,this.x2,this.y2);
+
+    d = abs((x2-x1)*(y1-y) - (x1-x)*(y2-y1)) / d1;
+    return d;
+   
+  }
+  // TODO check code below
+  // nearest point on rail
+  nearest(pt){
+    let x1 = this.x1;
+    let y1 = this.y1;
+    let x2 = this.x2;
+    let y2 = this.y2;
+    let xp = pt.x;
+    let yp = pt.y;
+    let d1 = dist(this.x1,this.y1,xp,yp);
+    let d2 = dist(this.x2,this.y2,xp,yp);
+    // rail equation :
+    // y = (y2-y1)/(x2-x1)*x - (y2-y1)/(x2-x1)*x1 + y1 
+    //
+    // make A = (y2-y1)/(x2-x1)
+    // then the perpendicular equation is
+    // y = -1/Ax + B
+    // determine B by applying the pt
+    let A = (y2-y1)/(x2-x1);
+    let xi = (yp - 1/A*xp +A*x1) / (A + 1/A);
+    let yi = A*xi - A*x& + y1;
+    let d = dist(xi,yi,xp,yp);
+    if (d < d1 && d < d2) {         // point on rail
+      return createVector(xi, yi);  
+    } 
+    else if(d1 < d2){               // closest end point
+      return createVector(this.x1,this.y1); 
+    }
+    else {
+      return createVector(this.x2,this.y2);
+    }
+
+  }
 
   draw() {
     noFill();
-    stroke(110);
+    stroke(getColor(110));// sets color '#6e6e6e'
     strokeWeight(0.23 * inchesToPoints);
 
     line(this.x1,this.y1,this.x2,this.y2);
@@ -570,12 +621,20 @@ class ArcRail {
     this.endAngle = endAngle;  
   }
 
-   getPosition( r) {
+  getPosition( r) {
     let a = this.begAngle + (this.endAngle - this.begAngle)*r;
 //    console.log('Getpos arcrail # x:',this.cx+cos(a)*this.rad, ' y:',this.cy+sin(a)*this.rad);
 
     return createVector(this.cx+cos(a)*this.rad, this.cy+sin(a)*this.rad);
   }  
+  // shortest distance from point to rail
+  distTo(pt){
+
+  }
+  // nearest point on rail
+  nearest(pt){
+
+  }
 
 //  fixed = 15.017775 6.61 1.5221801
 //  moveable = 16.518276 2.237212 3.0443602
@@ -649,7 +708,7 @@ class ArcRail {
 
   draw() {
     noFill();
-    stroke(110);
+    stroke(getColor(110));// sets color '#6e6e6e'
     strokeWeight(0.23*inchesToPoints);
     arc(this.cx, this.cy, this.rad, this.rad, this.begAngle, this.endAngle);
   }
@@ -660,7 +719,7 @@ rgTeeth = [ // regular gears
   30, 32, 34, 36, 40, 48, 50, 58, 60, 66, 72, 74, 80, 90, 94, 98, 100, 108, 
 ];
 ttTeeth = [ // turntable gears
-   120, 144, 150
+   120, 144, 150, 180
 ];
 
 class GearSetup {
@@ -722,6 +781,7 @@ class Gear {
     this.selected = false;
     this.contributesToCycle = true;
     this.itsChannel = {};
+    this.axle = null;
    
   }
 
@@ -782,8 +842,8 @@ class Gear {
   }
   
 
-
-  getPosition( r) {
+// this gives the position of the connection point 
+  getPosition( r) { 
     let d = this.notchToDist(r); // kGearLabelStart+(r-1)*kGearLabelIncr;
 //    console.log('Getpos ',this.nom,' # x:',this.x + cos(this.rotation + this.phase) * d, ' y:',this.y + sin(this.rotation + this.phase) * d);
 
@@ -853,15 +913,28 @@ class Gear {
     let pt = this.itsChannel.getPosition(this.mountRatio);
     this.x = pt.x;
     this.y = pt.y;
+    if (this.axle != null){ // update axle coordinate too
+      this.axle.x = pt.x;
+      this.axle.y = pt.y;
+    }
     // console.log('Recalc ',this.nom,'# r ',this.rotation,' t=',this.teeth);
   }
 
+  mountOn(pt){
+    this.itsChannel = pt.itsChannel;
+    this.mountRatio = pt.itsMountLength;
+     
+    this.x = pt.x;
+    this.y = pt.y;
+    this.axle = pt;
+  }
   mount( ch,  r =0.0) {
     this.itsChannel = ch;
     this.mountRatio = r;
     let pt = ch.getPosition(r);
     this.x = pt.x;
     this.y = pt.y;
+    this.axle = null;
   }
 
   crank( pos) {
@@ -891,7 +964,7 @@ class Gear {
     strokeCap(ROUND);
     strokeJoin(ROUND);
     noFill();
-    stroke(0);
+    stroke(getColor(0));// sets color '#000000'
 
     push();
       translate(this.x, this.y);
@@ -903,16 +976,16 @@ class Gear {
       let tipAngle = tAngle * 0.1;
 
       if (this.doFill) {
-        fill(220);
+        fill(getColor(220)); // set color '#dcdcdc'
       } else {
        noFill();
       }
       if (this.selected) {
         strokeWeight(4);
-        stroke(64);
+        stroke(getColor(64));// sets color '#404040'
       } else {
         strokeWeight(0.5);
-        stroke(128);
+        stroke(getColor(128));// sets color '#808080'
       }
       beginShape();
       for ( let i = 0; i < this.teeth; ++i) {
@@ -927,9 +1000,9 @@ class Gear {
       }
       endShape();
 
-      if (this == turnTable) {
+      if (this == turnTable) {  // draw paper
         noStroke();
-        fill(255,192);
+        fill(255,192); // set color '#ffffffc0' papercolor
         beginShape();
         for ( let i = 0; i < 8; ++i) {
           vertex(kPaperRad * cos(i * TWO_PI / 8), kPaperRad * sin(i * TWO_PI / 8));          
@@ -942,7 +1015,7 @@ class Gear {
 
       push();
         translate(0, this.radius - 20);
-        fill(127);
+        fill(getColor(127));// sets color '#7f7f7f'
         textFont(gFont);
         textAlign(CENTER);
         text("" + this.teeth, 0, 0);
@@ -951,7 +1024,7 @@ class Gear {
 
       if (this.showMount) {
         noStroke();
-        fill(192,128);
+        fill(getColor(192,128));// sets color 'c0c0c0!0'
         ellipse(0, 0, kGearMountRadius, kGearMountRadius);
 
         push();
@@ -971,8 +1044,8 @@ class Gear {
           textFont(nFont);
           textAlign(CENTER);
 
-          stroke(128);
-          fill(128);
+          stroke(getColor(128));// sets color '#808080'
+          fill(getColor(128));// sets color '#808080'
           let nbrNotches = (nbrLabels)*2-1;
           for ( let i = 0; i < nbrNotches; ++i) {
             let x = kGearLabelStart + i * 0.25 * inchesToPoints;
@@ -981,7 +1054,7 @@ class Gear {
               text((i / 2 ) + 1, x, kGearNotchHeightMaj + 0.2 * inchesToPoints);
             }
           }
-          fill(192);
+          fill(getColor(192));// sets color '#c0c0c0'
           noStroke();
           rect(notchStart, -kGearNotchWidth/2, notchEnd-notchStart, kGearNotchWidth);
         pop();

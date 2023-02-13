@@ -157,6 +157,11 @@ function drag() {
         startDragX = mouseX;
         startDragY = mouseY;
       }
+    } else if (selectedObject instanceof MountPoint && freeMode) {
+      // Mount points can move anywhere and are not bound to rails, rods or gears
+        selectedObject.x = mouseX;
+        selectedObject.y = mouseY;
+        direction = 0; // disable nudging
     } else {
       let dm = dist(mouseX, mouseY, startDragX, startDragX);
       if (abs(dm) > 10) {
@@ -338,6 +343,7 @@ function getSetupMode()
     } else if (!cmd.localeCompare("setup")) {
         let setupMode = int(subcmd);
         deselect();
+        penRaised = true;
         drawingSetup(setupMode, false);
         doSaveSetup();
     } else if (!cmd.localeCompare("snapshot")) {
@@ -345,6 +351,8 @@ function getSetupMode()
     } else if (!cmd.localeCompare("help")) {
       toggleHelp();
       // alert("Help is coming soon...");
+    } else if (!cmd.localeCompare("freehand")) {
+      toggleFreeMode();
     }
   }
 
