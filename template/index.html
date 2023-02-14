@@ -5,7 +5,8 @@
 		<meta name="Generator" content="Processing" />
         <link rel="stylesheet" type="text/css" href="../data/css/bootstrap.min.css">
         <link rel="stylesheet" type="text/css" href="../data/css/CDMS.css">
-		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.1/css/fontawesome.min.css">
+		<script src="https://kit.fontawesome.com/36ad411ae1.js" crossorigin="anonymous"></script>
+		<!--link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.3.0/css/fontawesome.min.css"-->
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
 		<!--script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script-->   
 		<script type="text/javascript" src="../data/js/jquery.enhanced.cookie.js"></script>
@@ -32,59 +33,62 @@
 
 			<div class="btn-group" data-toggle="buttons">
 				  <label class="btn btn-default bcmd" id="lcmd:rrr">
-				    <input type="radio" name="options" id="bcmd:rrr" autocomplete="off">rrr<i class="fa fa-fast-backward fa-2x"></i>
+				    <input type="radio" name="options" id="bcmd:rrr" autocomplete="off"><i class="fa-solid fa-backward-fast fa-2x"></i>
 				  </label>
 				  <label class="btn btn-default bcmd" id="lcmd:rr">
-				    <input type="radio" name="options" id="bcmd:rr" autocomplete="off">rr<i class="fa fa-backward fa-2x"></i>
+				    <input type="radio" name="options" id="bcmd:rr" autocomplete="off"><i class="fa-solid fa-backward fa-2x"></i>
 				  </label>
 				  <label class="btn btn-default bcmd active" id="lcmd:pause" >
-				    <input type="radio" name="options" id="bcmd:pause" autocomplete="off" checked>pause<i class="fa fa-pause fa-2x"></i>
+				    <input type="radio" name="options" id="bcmd:pause" autocomplete="off" checked><i class="fa-solid fa-pause fa-2x"></i>
 				  </label>
 				  <label class="btn btn-default bcmd" id="lcmd:play">
-				    <input type="radio" name="options" id="bcmd:play" autocomplete="off">play<i class="fa fa-play fa-2x"></i>
+				    <input type="radio" name="options" id="bcmd:play" autocomplete="off"><i class="fa-solid fa-play fa-2x"></i>
 				  </label>
 				  <label class="btn btn-default bcmd" id="lcmd:ff">
-				    <input type="radio" name="options" id="bcmd:ff" autocomplete="off">ff<i class="fa fa-forward fa-2x"></i>
+				    <input type="radio" name="options" id="bcmd:ff" autocomplete="off"><i class="fa-solid fa-forward fa-2x"></i>
 				  </label>
 				  <label class="btn btn-default bcmd" id="lcmd:fff">
-				    <input type="radio" name="options" id="bcmd:fff" autocomplete="off">fff<i class="fa fa-fast-forward fa-2x"></i>
+				    <input type="radio" name="options" id="bcmd:fff" autocomplete="off"><i class="fa-solid fa-forward-fast fa-2x"></i>
 				  </label>
 			</div>
 			&nbsp;&nbsp;&nbsp;&nbsp;
 			<div class="btn-group" data-toggle="buttons">
-				  <label class="btn btn-default bcmd scmd active" id="lcmd:setup:0">
-				    <input type="radio" name="options" id="bcmd:setup:0" autocomplete="off">A
+				  <label class="btn btn-default bcmd scmd active" id="lcmd:setup:0"><i class="fa fa-a fa-2x"></i>
+				    <input type="radio" name="options" id="bcmd:setup:0" autocomplete="off">
 				  </label>
-				  <label class="btn btn-default bcmd scmd" id="lcmd:setup:1">
-				    <input type="radio" name="options" id="bcmd:setup:1" autocomplete="off">B
+				  <label class="btn btn-default bcmd scmd" id="lcmd:setup:1"><i class="fa fa-b fa-2x"></i>
+				    <input type="radio" name="options" id="bcmd:setup:1" autocomplete="off">
 				  </label>
-				  <label class="btn btn-default bcmd scmd" id="lcmd:setup:2">
-				    <input type="radio" name="options" id="bcmd:setup:2" autocomplete="off">C
+				  <label class="btn btn-default bcmd scmd" id="lcmd:setup:2"><i class="fa fa-c fa-2x"></i>
+				    <input type="radio" name="options" id="bcmd:setup:2" autocomplete="off">
 				  </label>
-				  <label class="btn btn-default bcmd scmd" id="lcmd:setup:3">
-				    <input type="radio" name="options" id="bcmd:setup:3" autocomplete="off">D
+				  <label class="btn btn-default bcmd scmd" id="lcmd:setup:3"><i class="fa fa-d fa-2x"></i>
+				    <input type="radio" name="options" id="bcmd:setup:3" autocomplete="off">
 				  </label>
-				  <label class="btn btn-default bcmd scmd" id="lcmd:setup:4">
-				    <input type="radio" name="options" id="bcmd:setup:4" autocomplete="off">E
+				  <label class="btn btn-default bcmd scmd" id="lcmd:setup:4"><i class="fa fa-e fa-2x"></i>
+				    <input type="radio" name="options" id="bcmd:setup:4" autocomplete="off">
 				  </label>
-				  <label class="btn btn-default bcmd scmd" id="lcmd:setup:5">
-				    <input type="radio" name="options" id="bcmd:setup:5" autocomplete="off">F
+				  <label class="btn btn-default bcmd scmd" id="lcmd:setup:5"><i class="fa fa-f fa-2x"></i>
+				    <input type="radio" name="options" id="bcmd:setup:5" autocomplete="off">
 				  </label>
-				  <label class="btn btn-default bcmd scmd" id="lcmd:setup:6">
-				    <input type="radio" name="options" id="bcmd:setup:6" autocomplete="off">G
+				  <label class="btn btn-default bcmd scmd" id="lcmd:setup:6"><i class="fa fa-g fa-2x"></i>
+				    <input type="radio" name="options" id="bcmd:setup:6" autocomplete="off">
 				  </label>
 			</div>
 			&nbsp;&nbsp;&nbsp;&nbsp;
 			<div class="btn-group">
-            	<button type="button" class="btn btn-default bcmd" id="bcmd:snapshot">snap<i class="fa fa-camera fa-2x"></i></button>
-            	<button type="button" class="btn btn-default bcmd" id="bcmd:erase">clr<i class="fa fa-eraser fa-2x"></i></button>
+            	<button type="button" class="btn btn-default bcmd" id="bcmd:snapshot"><i class="fa fa-camera fa-2x"></i></button>
+            	<button type="button" class="btn btn-default bcmd" id="bcmd:erase"><i class="fa fa-eraser fa-2x"></i></button>
             	<button type="button" class="btn btn-default bcmd" id="bcmd:help"><i class="fa fa-question fa-2x"></i></button>
 			</div>
 			&nbsp;&nbsp;&nbsp;&nbsp;
 			<div class="btn-group">
-            	<button type="button" class="btn btn-default bcmd" id="bcmd:freehand">freehand<i class="fa fa-camera fa-2x"></i></button>
-            	<button type="button" class="btn btn-default bcmd" id="bcmd:addpoint">point<i class="fa fa-eraser fa-2x"></i></button>
-            	<button type="button" class="btn btn-default bcmd" id="bcmd:addgear">gear<i class="fa fa-question fa-2x"></i></button>
+            	<button type="button" class="btn btn-default bcmd" id="bcmd:freehand"><i class="fa fa-hand-sparkles fa-2x"></i></button>
+            	<button type="button" class="btn btn-default bcmd" id="bcmd:addpoint"><i class="fa fa-plus fa-2x"></i></button>
+				<button type="button" class="btn btn-default bcmd" id="bcmd:addrail"><i class="fa fa-train-subway fa-2x"></i></button>
+            	<button type="button" class="btn btn-default bcmd" id="bcmd:addgear"><i class="fa fa-gears fa-2x"></i></button>
+				<button type="button" class="btn btn-default bcmd" id="bcmd:addrod"><i class="fa fa-code-commit fa-2x"></i></button>
+            	<button type="button" class="btn btn-default bcmd" id="bcmd:addpen"><i class="fa fa-pencil fa-2x"></i></button>
 			</div>
 			<div id="info-link">
 				<a href="https://github.com/jbum/CDMS" target="_blank">Source code &amp; technical info</a>
