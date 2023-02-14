@@ -788,7 +788,7 @@ function mousePressed()
   // nothing selected or clicked on
   // if in freemode add new mount point at mouse point and start tracking it 
   if (freeMode){
-    let mp = new MountPoint("FREEMP",mouseX,mouseY);
+    let mp = new MountPoint("FREEMP",mouseX/inchesToPoints,mouseY/inchesToPoints);
     selectedObject = mp;
     console.log("added free mountpoint");
     activeMountPoints.push(mp);
@@ -813,18 +813,12 @@ function doDrop()
   // else add lineair rail from selected point
   // extend rail to edge minus minimum distance
   // add mountpoint on rail
-  if (selectedObject != null) { // lineair rail from center point selected object to mouse point
-    x1 = selectedObject.x;
-    y1 = selectedObject.y;
-    x2 = mouseX;
-    y2 = mouseY;
-  }
-  else{ // linair rail from center point to mouse pount
     x1 = discPoint.x;
     y1 = discPoint.y;
+    
     x2 = mouseX;
     y2 = mouseY;    
-  }
+  
   let dx = x1 - x2;
   let dy = y1 - y2;
   let a = atan2(dy, dx);
