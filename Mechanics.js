@@ -60,9 +60,9 @@ class MountPoint {
       let setupIdx = arguments[3];
       this.typeStr = typeStr;
       this.itsChannel = chanl;
-      this.itsMountLength = mountRatio;
+      this.itsMountLength = mountRatio;// multiply with length ??
       this.setupIdx = setupIdx;
-      let pt = chanl.getPosition(mountRatio);
+      let pt = chanl.getPosition(mountRatio); // getPostion(mountLength)
       this.x = pt.x;
       this.y = pt.y;
     } 
@@ -145,6 +145,24 @@ class MountPoint {
 
   snugTo( moveable,  fixed) { // not meaningful
   }
+
+  // track mounting point along itschannel (rail or rod)
+  track (x,y) {
+    if (this.itsChannel){
+      let ratio = this.itsChannel.nearest(createVector(x,y));
+      if (this.itsChannel instanceof  LineRail){
+        this.itsMountLength = ratio;
+      }
+      else
+      {
+         this.itsMountLength = this.itsChannel.distToNotch( ratio * dist(this.itsChannel.itsAnchor.x,this.itsChannel.itsAnchor.y,this.itsChannel.itsSlide.x,this.itsChannel.itsSlide.y));
+      }
+      return ratio;
+    }
+    else{
+      return 0;
+    }
+  }
   
   draw() {
     let p = this.getPosition();
@@ -189,15 +207,15 @@ class ConnectingRod {
     return createVector(ap.x + cos(this.armAngle)*d, ap.y + sin(this.armAngle)*d);
   }  
 
-   snugTo( moveable,  fixed) {
+  snugTo( moveable,  fixed) {
     // not relevant for connecting rods
   }
 
-   unselect() {
+  unselect() {
     this.selected = false;
   }
   
-   select() {
+  select() {
     this.selected = true;
   }
   
@@ -230,16 +248,84 @@ class ConnectingRod {
     }
   }
 
+  // shortest distance from point to rail
+  // https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
+  distTo(pt){
+    let x1 = this.x1;
+    let y1 = this.y1;
+    let x2 = this.x2;
+    let y2 = this.y2;
+    let x = pt.x;
+    let y = pt.y;
+    let d1 = dist(this.x1,this.y1,this.x2,this.y2);
+
+    d = abs((x2-x1)*(y1-y) - (x1-x)*(y2-y1)) / d1;
+    return d;
+   
+  }
+  // TODO check code below
+  // nearest point on rail
+  nearest(pt){
+    let x1 = this.itsAnchor.x;
+    let y1 = this.itsAnchor.y;
+    let x2 = this.itsSlide.x;
+    let y2 = this.itsSlide.y;
+    let xp = pt.x;
+    let yp = pt.y;
+    let l = dist(x1,y1,x2,y2);
+    
+    // rail equation :
+    // y = (y2-y1)/(x2-x1)*x - (y2-y1)/(x2-x1)*x1 + y1 
+    //
+    // make A = (y2-y1)/(x2-x1)
+    // then the perpendicular equation is
+    // y = -1/Ax + B
+    // determine B by applying the pt
+    let xi = 0;
+    let yi = 0;
+    if (x2 == x1){
+      return constrain((yp - y1)/(y2-y1),0,1);
+    }
+    else if (y2 == y1){
+      return constrain((xp - x1)/(x2-x1),0,1);
+    }
+    else{
+      let A = (y2-y1)/(x2-x1);
+      let B = y1 - A*x1;
+      xi = (xp + A*yp - A*B) / (A * A + 1);
+      yi = A*xi + B;
+    }
+    let d1 = dist(xi,yi,x1,y1);
+    let d2 = dist(xi,yi,x2,y2);
+    if (d1 < l && d2 < l) {         // point on rail
+      return constrain(d1 / l,0,1);
+    } 
+    else if(d1 < d2){               // closest end point
+      return 0; 
+    }
+    else {
+      return 1;
+    }
+
+  }
+
   isClicked( mx,  my) 
   {
     let ap = this.itsAnchor.getPosition();
     let sp = this.itsSlide.getPosition();
 
     // mx,my, ap, ep522 293 546.1399 168.98767   492.651 451.97696
-    let gr = 5;
+ /*   let gr = 5;
     return (mx > min(ap.x-gr,sp.x-gr) && mx < max(ap.x+gr,sp.x+gr) &&
             my > min(ap.y-gr,sp.y-gr) && my < max(ap.y+gr,sp.y+gr) &&
-           abs(atan2(my-sp.y,mx-sp.x) - atan2(ap.y-sp.y,ap.x-sp.x)) < radians(10)); 
+           abs(atan2(my-sp.y,mx-sp.x) - atan2(ap.y-sp.y,ap.x-sp.x)) < radians(10)); */
+    let gr = 5; // pixel deadband
+    let Dx = ap.x - sp.x;
+    let Dy = ap.y - sp.y;
+    let D = Dx*Dx + Dy*Dy;
+    let d = Math.abs(Dy*mx - Dx*my - sp.x*ap.y+ap.x*sp.y);
+    d= d*d;
+    return ((d / D) < (gr*gr));
   }
 
   notchToDist( n) {
@@ -250,7 +336,18 @@ class ConnectingRod {
     return 1 + (d - kCRLabelStart) / kCRLabelIncr;
   }
 
- 
+  getSelectionCursor(x,y){
+    if (this.selected){
+      let ep = this.getPosition();
+
+      if(dist(ep.x,ep.y,x,y) < this.itsMP.radius){
+        cursor('../assets/pen.png',31,0);
+      } else{ 
+        cursor('../assets/penPosition.png',16,16);
+      }
+    }
+  }
+
   draw() {
     let ap = this.itsAnchor.getPosition();
     let sp = this.itsSlide.getPosition();
@@ -351,15 +448,30 @@ class PenRig  {
     let ap = this.itsMP.getPosition();
     let ep = this.getPosition();
 
-    let a = atan2(ap.y-ep.y,ap.x-ep.x);
+    /*let a = atan2(ap.y-ep.y,ap.x-ep.x);
     let d = 6*inchesToPoints;
     ap.x = ep.x + cos(a) * d;
     ap.y = ep.y + sin(a) * d;
 
     let gr = 5;
+
+    /// TODO find better solution, seems not to work when clicking near the endpoints
+
     return (mx > min(ap.x-gr,ep.x-gr) && mx < max(ap.x+gr,ep.x+gr) &&
             my > min(ap.y-gr,ep.y-gr) && my < max(ap.y+gr,ep.y+gr) &&
            abs(atan2(my-ep.y,mx-ep.x) - atan2(ap.y-ep.y,ap.x-ep.x)) < radians(10)); 
+    */
+
+    /// https://stackoverflow.com/questions/14371841/finding-if-a-point-is-on-a-line/14372111#14372111
+    /// https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line#Line_defined_by_two_points
+
+    let gr = 5; // pixel deadband
+    let Dx = ap.x - ep.x;
+    let Dy = ap.y - ep.y;
+    let D = Dx*Dx + Dy*Dy;
+    let d = Math.abs(Dy*mx - Dx*my - ep.x*ap.y+ap.x*ep.y);
+    d= d*d;
+    return ((d / D) < (gr*gr));
   }
   
   unselect() {
@@ -368,6 +480,18 @@ class PenRig  {
   
   select() {
     this.selected = true;
+  }
+
+  getSelectionCursor(x,y){
+    if (this.selected){
+      let ep = this.getPosition();
+
+      if(dist(ep.x,ep.y,x,y) < this.itsMP.radius){
+        cursor('../assets/pen.png',31,0);
+      } else{ 
+        cursor('../assets/penPosition.png',16,16);
+      }
+    }
   }
 
 /// TODO where is lastrotation being defined and last direction
@@ -473,16 +597,25 @@ class PenRig  {
 
   }
 }
-
+/// why not a specialized connecting rod ? with no moving AP or SP
+/// makes adapting the rail easier since the AP and SP can be moved
 class LineRail  {
   constructor( x1,  y1,  x2,   y2) {
+    this.selected = false;
     this.x1 = x1 * inchesToPoints;
     this.y1 = y1 * inchesToPoints;
     this.x2 = x2 * inchesToPoints;
     this.y2 = y2 * inchesToPoints;
+
   }
   getPosition( ratio) {
   // console.log('Getpos linerail # x:',this.x1 + (this.x2 - this.x1) * ratio, ' y:',this.y1 + (this.y2 - this.y1) * ratio);
+
+  /// alt : 
+  // armangle = atan2((y2-y1)/(x2-x1))
+  // let l = this.notchToDist(r)
+  // createVector(x1 + l*cos(a), y1 + l*sin(a)
+
     return createVector(this.x1 + (this.x2 - this.x1) * ratio, this.y1 + (this.y2 - this.y1) * ratio);
   }  
   // shortest distance from point to rail
@@ -509,8 +642,8 @@ class LineRail  {
     let y2 = this.y2;
     let xp = pt.x;
     let yp = pt.y;
-    let d1 = dist(this.x1,this.y1,xp,yp);
-    let d2 = dist(this.x2,this.y2,xp,yp);
+    let l = dist(this.x1,this.y1,this.x2,this.y2);
+    
     // rail equation :
     // y = (y2-y1)/(x2-x1)*x - (y2-y1)/(x2-x1)*x1 + y1 
     //
@@ -518,20 +651,46 @@ class LineRail  {
     // then the perpendicular equation is
     // y = -1/Ax + B
     // determine B by applying the pt
-    let A = (y2-y1)/(x2-x1);
-    let xi = (yp - 1/A*xp +A*x1) / (A + 1/A);
-    let yi = A*xi - A*x& + y1;
-    let d = dist(xi,yi,xp,yp);
-    if (d < d1 && d < d2) {         // point on rail
-      return createVector(xi, yi);  
+    let xi = 0;
+    let yi = 0;
+    if (x2 == x1){
+      xi = x1;
+      yi = pt.y;
+    }
+    else if (y2 == y1){
+      xi = pt.x;
+      yi = y1;
+    }
+    else{
+      let A = (y2-y1)/(x2-x1);
+      let B = y1 - A*x1;
+      xi = (xp + A*yp - A*B) / (A * A + 1);
+      yi = A*xi + B;
+    }
+    let d1 = dist(xi,yi,this.x1,this.y1);
+    let d2 = dist(xi,yi,this.x2,this.y2);
+    if (d1 < l && d2 < l) {         // point on rail
+      d2 = dist(this.x1,this.y1,this.x2,this.y2);
+      return constrain(d1 / d2,0,1);
     } 
     else if(d1 < d2){               // closest end point
-      return createVector(this.x1,this.y1); 
+      return 0; 
     }
     else {
-      return createVector(this.x2,this.y2);
+      return 1;
     }
 
+  }
+
+  isClicked( mx,  my) 
+  {
+    let gr = 5; // pixel deadband
+    let Dx = this.x1 - this.x2;
+    let Dy = this.y1 - this.y2;
+    let D = Dx*Dx + Dy*Dy;
+    let d = Math.abs(Dy*mx - Dx*my - this.x1*this.y2+this.x2*this.y1);
+    d= d*d;
+    return ((d / D) < (gr*gr));
   }
 
   draw() {
@@ -557,6 +716,8 @@ class LineRail  {
     if (adiff > TWO_PI)
       adiff -= TWO_PI;
     if (adiff < 0.01) {  // if rail is perpendicular to fixed circle
+      /// alt : moet dit nog geschaald worden naar notch waarden ?
+      // mountLength = r - d1
       mountRatio = (r - d1) / (d2 - d1);
       // find position on line (if any) which corresponds to two radii
     } else if ( abs(this.x2 - this.x1) < 0.01 ) {
@@ -576,8 +737,13 @@ class LineRail  {
         my1 = my2;
       } 
       if (delta < 0) {
+        /// alt :
+        // mountLength = -1;
         mountRatio = -1;
       } else {
+        /// alt : moet dit nog geschaald worden naar notch waarden ?
+        // mountLength = dist(this.x1, this.y1, mx1, my1); 
+
         mountRatio = dist(this.x1, this.y1, mx1, my1) / dist(this.x1, this.y1, this.x2, this.y2);
       }
     } else { // we likely have a gear on one of the lines on the left
@@ -598,8 +764,12 @@ class LineRail  {
         my1 = my2;
       }
       if (delta < 0) {
+        /// alt :
+        // mountLength = -1;
         mountRatio = -1;
       } else {
+        /// alt : moet dit nog geschaald worden naar notch waarden ?
+        // mountLength = dist(this.x1, this.y1, mx1, my1); 
         mountRatio = dist(this.x1, this.y1, mx1, my1) / dist(this.x1, this.y1, this.x2, this.y2);
       }
     }
@@ -608,12 +778,15 @@ class LineRail  {
       mountRatio = 0;
     }
     mountRatio = constrain(mountRatio,0,1);
+    //mountLength = mountRatio * dist(this.x1,this.y1,this.x2,this.y2);
+    //moveable.mount(this,mountLength);
     moveable.mount(this,mountRatio);
   }
 }
 
 class ArcRail {
   constructor( cx,  cy,  rad,  begAngle,  endAngle) {
+    this.selected = false;
     this.cx = cx*inchesToPoints;
     this.cy = cy*inchesToPoints;
     this.rad = rad*inchesToPoints;
@@ -621,8 +794,12 @@ class ArcRail {
     this.endAngle = endAngle;  
   }
 
-  getPosition( r) {
-    let a = this.begAngle + (this.endAngle - this.begAngle)*r;
+  getPosition( ratio) {
+    /// alt:
+    // mountlength / this.rad --> angle 
+    // a = this.begAngle + mountlength / this.rad
+
+    let a = this.begAngle + (this.endAngle - this.begAngle)*ratio;
 //    console.log('Getpos arcrail # x:',this.cx+cos(a)*this.rad, ' y:',this.cy+sin(a)*this.rad);
 
     return createVector(this.cx+cos(a)*this.rad, this.cy+sin(a)*this.rad);
@@ -633,18 +810,18 @@ class ArcRail {
   }
   // nearest point on rail
   nearest(pt){
+    // is point between start and end angle ? else which is closest
+    let a = atan2(pt.x - this.cx,pt.y -this.cy);
+    if (a >= this.begAngle && a <= this.endAngle) {
+      return constrain((a-this.begAngle)/(this.endAngle - this.begAngle),0,1);
+    } else if(a < this.begAngle){
+      return 0;
+    } else {
+      return 1;
+    }
+
 
   }
-
-//  fixed = 15.017775 6.61 1.5221801
-//  moveable = 16.518276 2.237212 3.0443602
-//  rail = 8.91 3.9100003 7.79
-//  angles = -24.999998 15.0
-//  desired r = 4.625595
-//  d = 6.6779423
-//  i1 12.791063 2.2343254 ang -23.352594
-//  i2 16.517643 2.2343254 ang -12.421739
-
 
   snugTo( moveable,  fixed) { // get the movable gear mounted on this rail snug to the fixed gear
 
@@ -782,7 +959,7 @@ class Gear {
     this.contributesToCycle = true;
     this.itsChannel = {};
     this.axle = null;
-   
+    
   }
 
   isClicked( mx,  my) {
@@ -821,8 +998,73 @@ class Gear {
     selectedObject = activeGears[gearIdx];
     selectedObject.select();
   }
+  // shortest distance from point to rail
+  // https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
+  distTo(pt){
+    let x1 = this.x1;
+    let y1 = this.y1;
+    let x2 = this.x2;
+    let y2 = this.y2;
+    let x = pt.x;
+    let y = pt.y;
+    let d1 = dist(this.x1,this.y1,this.x2,this.y2);
 
-  
+    d = abs((x2-x1)*(y1-y) - (x1-x)*(y2-y1)) / d1;
+    return d;
+   
+  }
+  // TODO check code below
+  // nearest point on rail
+  nearest(pt){
+    let notchStart = 0;
+    let notchEnd = this.radius;
+    if (this.itsSetup != null) {
+      notchStart = this.itsSetup.notchStart;
+      notchEnd   = this.itsSetup.notchEnd;
+    } else {
+      // Make a guesstimate
+      notchStart = max(this.radius * 0.1,16 * seventyTwoScale);
+      notchEnd = this.radius - max(this.radius * 0.1,8 * seventyTwoScale);
+    }
+    let xc = this.x;
+    let yc = this.y;
+    let x1 = xc + notchStart * cos(this.rotation+this.phase);
+    let y1 = notchStart * sin(this.rotation+this.phase);
+    let x2 = xc + notchEnd * cos(this.rotation+this.phase);
+    let y2 = notchEnd * sin(this.rotation+this.phase);
+    let xp = pt.x;
+    let yp = pt.y;
+    let l = dist(x1,y1,x2,y2);
+    let xi = 0;
+    let yi = 0;
+    if (x2 == x1){
+      xi = x1;
+      yi = pt.y;
+    }
+    else if (y2 == y1){
+      xi = pt.x;
+      yi = y1;
+    }
+    else{
+      let A = (y2-y1)/(x2-x1);
+      let B = y1 - A*x1;
+      xi = (xp + A*yp - A*B) / (A * A + 1);
+      yi = A*xi + B;
+    }
+    let d1 = dist(xi,yi,x1,y1);
+    let d2 = dist(xi,yi,x2,y2);
+    if (d1 < l && d2 < l) {         // point on rail
+      d2 = dist(x1,y1,x2,y2);
+      return constrain(d1 / d2,0,1);
+    } 
+    else if(d1 < d2){               // closest end point
+      return 0; 
+    }
+    else {
+      return 1;
+    }
+  }
+ 
   findNextTeeth( teeth,  direction) {
     let gTeeth = (this == turnTable? ttTeeth : rgTeeth);
 

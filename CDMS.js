@@ -554,6 +554,7 @@ function draw()
         passesPerFrame = 1;
         penRaised = true;
         isMoving = false;
+        isStarted = false;
         buttonFeedback();
         break;
       }
@@ -750,12 +751,14 @@ function mousePressed()
 {
   if (!freeMode || (mouseButton === RIGHT)){
     deselect();
+    cursor(ARROW);
   }
   
   for ( let mp of activeMountPoints) {
     if (mp.isClicked(mouseX, mouseY)) {
       mp.select();
       selectedObject= mp;
+      cursor('../assets/RailPoint.png',16,8);
       return;
     }
   }
@@ -763,6 +766,7 @@ function mousePressed()
   if (penRig.isClicked(mouseX, mouseY)) {
     penRig.select();
     selectedObject= penRig;
+    penRig.getSelectionCursor(mouseX,mouseY);
     return;
   }
 
@@ -782,6 +786,7 @@ function mousePressed()
         deselect();
         g.select();
         selectedObject = g;
+        cursor('grab');
         return;
     }
   }
@@ -826,5 +831,5 @@ function doDrop()
   let px = x2 + cos(a)*l;
   let py = y2 + sin(a)*l;
   freeRail = new LineRail(px/ inchesToPoints,py/ inchesToPoints,x2/ inchesToPoints,y2/ inchesToPoints);
-  rails.push(freeRail);
+  rails.push(freeRail); // push new rail to collection
 }

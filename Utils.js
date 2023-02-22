@@ -162,7 +162,13 @@ function drag() {
         selectedObject.x = mouseX;
         selectedObject.y = mouseY;
         direction = 0; // disable nudging
-    } else {
+// only if near a rail
+/*        let np = selectedObject.track(mouseX, mouseY);
+        selectedObject.x = np.x;
+        selectedObject.y = np.y;
+  */
+    } else { // mount point, rail, connection rod
+      let rotation = selectedObject.track(mouseX, mouseY);
       let dm = dist(mouseX, mouseY, startDragX, startDragX);
       if (abs(dm) > 10) {
         let a = atan2(mouseY-startDragY, mouseX-startDragX);
@@ -182,9 +188,11 @@ function drag() {
         startDragX = mouseX;
         startDragY = mouseY;
       }
+      direction = 0;
+    } 
+    if (direction){
+      nudge(direction,keycode);
     }
-    if (direction != 0)
-      nudge(direction, keycode);
   }
 }
 
