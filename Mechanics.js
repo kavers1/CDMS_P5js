@@ -612,11 +612,11 @@ class LineRail  {
   // console.log('Getpos linerail # x:',this.x1 + (this.x2 - this.x1) * ratio, ' y:',this.y1 + (this.y2 - this.y1) * ratio);
 
   /// alt : 
-  // armangle = atan2((y2-y1)/(x2-x1))
-  // let l = this.notchToDist(r)
-  // createVector(x1 + l*cos(a), y1 + l*sin(a)
+  let armAngle = atan2((this.y2-this.y1),(this.x2-this.x1));
+  let l = ratio;
+  return createVector(this.x1 + l*cos(armAngle),this. y1 + l*sin(armAngle));
 
-    return createVector(this.x1 + (this.x2 - this.x1) * ratio, this.y1 + (this.y2 - this.y1) * ratio);
+//    return createVector(this.x1 + (this.x2 - this.x1) * ratio, this.y1 + (this.y2 - this.y1) * ratio);
   }  
   // shortest distance from point to rail
   // https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
@@ -644,13 +644,6 @@ class LineRail  {
     let yp = pt.y;
     let l = dist(this.x1,this.y1,this.x2,this.y2);
     
-    // rail equation :
-    // y = (y2-y1)/(x2-x1)*x - (y2-y1)/(x2-x1)*x1 + y1 
-    //
-    // make A = (y2-y1)/(x2-x1)
-    // then the perpendicular equation is
-    // y = -1/Ax + B
-    // determine B by applying the pt
     let xi = 0;
     let yi = 0;
     if (x2 == x1){
@@ -671,13 +664,13 @@ class LineRail  {
     let d2 = dist(xi,yi,this.x2,this.y2);
     if (d1 < l && d2 < l) {         // point on rail
       d2 = dist(this.x1,this.y1,this.x2,this.y2);
-      return constrain(d1 / d2,0,1);
+      return d1 ;
     } 
     else if(d1 < d2){               // closest end point
       return 0; 
     }
     else {
-      return 1;
+      return l;
     }
 
   }
@@ -710,6 +703,7 @@ class LineRail  {
     let a2 = atan2(dy2,dx2);
     let d1 = dist(this.x1,this.y1,fixed.x,fixed.y);
     let d2 = dist(this.x2,this.y2,fixed.x,fixed.y);
+    let l = dist(this.x1,this.y1,this.x2,this.y2);
     let adiff = abs(a1-a2);
     let r = moveable.radius + fixed.radius + meshGap;
     let mountRatio;
@@ -718,7 +712,7 @@ class LineRail  {
     if (adiff < 0.01) {  // if rail is perpendicular to fixed circle
       /// alt : moet dit nog geschaald worden naar notch waarden ?
       // mountLength = r - d1
-      mountRatio = (r - d1) / (d2 - d1);
+      mountRatio = (r - d1);
       // find position on line (if any) which corresponds to two radii
     } else if ( abs(this.x2 - this.x1) < 0.01 ) {
       let m = 0;
@@ -744,7 +738,7 @@ class LineRail  {
         /// alt : moet dit nog geschaald worden naar notch waarden ?
         // mountLength = dist(this.x1, this.y1, mx1, my1); 
 
-        mountRatio = dist(this.x1, this.y1, mx1, my1) / dist(this.x1, this.y1, this.x2, this.y2);
+        mountRatio = dist(this.x1, this.y1, mx1, my1) ;
       }
     } else { // we likely have a gear on one of the lines on the left
       // given the line formed by x1,y1 x2,y2, find the two spots which are desiredRadius from fixed center.
@@ -770,14 +764,14 @@ class LineRail  {
       } else {
         /// alt : moet dit nog geschaald worden naar notch waarden ?
         // mountLength = dist(this.x1, this.y1, mx1, my1); 
-        mountRatio = dist(this.x1, this.y1, mx1, my1) / dist(this.x1, this.y1, this.x2, this.y2);
+        mountRatio = dist(this.x1, this.y1, mx1, my1) ;
       }
     }
-    if (mountRatio < 0 || mountRatio > 1 || isNaN(mountRatio) ) {
+    if (mountRatio < 0 || mountRatio > l || isNaN(mountRatio) ) {
       loadError = 1;
       mountRatio = 0;
     }
-    mountRatio = constrain(mountRatio,0,1);
+    mountRatio = constrain(mountRatio,0,l);
     //mountLength = mountRatio * dist(this.x1,this.y1,this.x2,this.y2);
     //moveable.mount(this,mountLength);
     moveable.mount(this,mountRatio);
