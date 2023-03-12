@@ -6,8 +6,9 @@
 // Physical machine designed by Joe Freedman  kickstarter.com/projects/1765367532/cycloid-drawing-machine
 // Processing simulation by Jim Bumgardner    krazydad.com
 //
-
+//// let inchesToPoints = 72; // controls display scaling
 let seventyTwoScale = inchesToPoints / 72.0; // Don't change this
+//// let mmToInches = 1/25.4;
 
 let setupTeeth = [
     [150,72],
@@ -68,6 +69,8 @@ let activeGears = [];
 let activeMountPoints = [];
 let rails = [];
 let activeConnectingRods = [];
+let mountPoints = [];
+let allCdmsObjects = [];
 
 
 let selectedObject = null;
@@ -148,6 +151,8 @@ function setup() {
   activeMountPoints.length = 0;
   activeConnectingRods.length = 0;
   rails.length = 0;
+  mountPoints.length = 0;
+  allCdmsObjects.length = 0;
 
 
   // Board Setup
@@ -211,6 +216,21 @@ function addPen( penMount) {
   return new PenRig(setupPens[setupMode][0], setupPens[setupMode][1], penMount);
 }
 
+function updateSetup(){
+  updateGearSetup(turnTable);
+}
+
+function updateGearSetup(anchor){
+  for (let g of anchor.meshGears.values()){
+    g.snugTo(anchor);
+    g.meshTo(anchor);
+  }
+  for (let g of anchor.meshGears.values()){
+    updateGearSetup(g);
+  }
+}
+
+
 function drawingSetup( setupIdx,  resetPaper)
 {
   let aRail = {};
@@ -244,6 +264,7 @@ function drawingSetup( setupIdx,  resetPaper)
   activeGears.length = 0;
   activeMountPoints.length = 0;
   activeConnectingRods.length = 0;
+//  mountPoints.length = 0;
   
    // Drawing Setup
   switch (setupIdx) {
@@ -252,7 +273,10 @@ function drawingSetup( setupIdx,  resetPaper)
     crank = addGear(1,"Crank");
     crankRail = rails[10];
     pivotRail = rails[1];
-    crank.mount(crankRail,0);
+    let crmount = new MountPoint("CRMP", crankRail, 0, 0);
+    activeMountPoints.push(crmount);
+    crank.mountOn(crmount);
+    //crank.mount(crankRail,0);
     turnTable.mount(discPoint, 0);
     crank.snugTo(turnTable);
     crank.meshTo(turnTable);
@@ -526,8 +550,8 @@ function draw()
       let dy = nib.y - pCenterY*inchesToPoints;
       let a = atan2(dy, dx);
       let l = sqrt(dx*dx + dy*dy);
-      let px = paperWidth/2 + cos(a-turnTable.rotation)*l*paperScale;
-      let py = paperWidth/2 + sin(a-turnTable.rotation)*l*paperScale;
+      let px = paperWidth/2 + cos(a-turnTable.rotation-turnTable.phase)*l*paperScale;
+      let py = paperWidth/2 + sin(a-turnTable.rotation-turnTable.phase)*l*paperScale;
       //paper.beginDraw();
       if (!isStarted) {
         // paper.clear();
@@ -583,9 +607,12 @@ function draw()
        ch.draw();
     }
     if (freeMode) {
-      for (var mp of activeMountPoints){
+      for (var mp of mountPoints){
         mp.draw();
       }
+//      for (var mp of activeMountPoints){
+//        mp.draw();
+//      }
     }
     // discPoint.draw();
     // console.log('gears');
@@ -600,7 +627,7 @@ function draw()
   
     push();
       translate(pCenterX*inchesToPoints, pCenterY*inchesToPoints);
-      rotate(turnTable.rotation);
+      rotate(turnTable.rotation+turnTable.phase);
       image(paper, -paperWidth/(2*paperScale), -paperWidth/(2*paperScale), paperWidth/paperScale, paperWidth/paperScale);
     pop();
 
@@ -722,9 +749,14 @@ function keyPressed() {
       isShifting = true;
       break;
     case 33: //pgdwn
-      /// TODO phase -- if selected gear
+      if(selectedObject && selectedObject instanceof Gear){
+        selectedObject.phase -= 2*Math.PI/selectedObject.teeth;
+      }
+      break;
     case 34: //pgup
-      /// TODO phase ++ if selected gear
+      if(selectedObject && selectedObject instanceof Gear){
+        selectedObject.phase += 2*Math.PI/selectedObject.teeth;
+      }
       break;
     default:
      break;
@@ -739,42 +771,38 @@ function mouseDragged()
 }
 
 function mouseReleased() {
-  if (freeMode){
+  if (freeMode && selectedObject == null){
     doDrop();
   }
   else{
-    isDragging = false;
+    dropObject();
+//    isDragging = false;
   }
+  updateSetup();
+  cursor(ARROW);
 }
 
 function mousePressed() 
 {
+  let d = 0;
+  let closest = 2000;
+  let selection = null;
   if (!freeMode || (mouseButton === RIGHT)){
     deselect();
     cursor(ARROW);
   }
   
-  for ( let mp of activeMountPoints) {
-    if (mp.isClicked(mouseX, mouseY)) {
-      mp.select();
-      selectedObject= mp;
-      cursor('../assets/RailPoint.png',16,8);
-      return;
-    }
-  }
-  
-  if (penRig.isClicked(mouseX, mouseY)) {
-    penRig.select();
-    selectedObject= penRig;
-    penRig.getSelectionCursor(mouseX,mouseY);
-    return;
+  d = penRig.isClicked(mouseX, mouseY);
+  if (d >= 0 && d <= closest) {
+    selection = penRig;
+    closest = d;
   }
 
   for ( let cr of activeConnectingRods) {
-    if (cr.isClicked(mouseX, mouseY)) {
-      cr.select();
-      selectedObject= cr;
-      return;
+    d = cr.isClicked(mouseX, mouseY);
+    if (d >= 0 && d < closest ) {
+      selection = cr;
+      closest = d;
     }
   }
   
@@ -782,22 +810,46 @@ function mousePressed()
   /// is needed for free positioning
 
   for ( let g of activeGears) {
-    if (g.isClicked(mouseX, mouseY)) {
-        deselect();
-        g.select();
-        selectedObject = g;
-        cursor('grab');
-        return;
+    d = g.isClicked(mouseX, mouseY);
+    if (d >= 0 && d < closest) {
+        selection = g;
+        closest = d;
     }
   }
-  // nothing selected or clicked on
-  // if in freemode add new mount point at mouse point and start tracking it 
   if (freeMode){
-    let mp = new MountPoint("FREEMP",mouseX/inchesToPoints,mouseY/inchesToPoints);
-    selectedObject = mp;
-    console.log("added free mountpoint");
-    activeMountPoints.push(mp);
-    return;
+    for ( let mp of mountPoints) {
+      d = mp.isClicked(mouseX, mouseY);
+      if ( d >= 0 ) {
+        selection = mp;
+        closest = d;
+      }
+    }
+  }
+
+  for ( let mp of activeMountPoints) {
+    d = mp.isClicked(mouseX, mouseY);
+    if ( d >= 0 ) {
+      selection = mp;
+      closest = d;
+    }
+  }
+
+  if (selection && selectedObject != selection){
+    deselect();
+    selection.select();
+    selectedObject = selection;
+    if (selection instanceof Gear){
+      cursor('grab');
+    } else if(selection instanceof ConnectingRod){
+      cursor(ARROW);
+    } else if(selection instanceof PenRig){
+      penRig.getSelectionCursor(mouseX,mouseY);
+    } else if( selection instanceof MountPoint){
+      cursor('../assets/RailPoint.png',16,8);
+    } else{
+      cursor(ARROW);
+    }
+
   }
 }
 
@@ -813,23 +865,11 @@ function toggleFreeMode()
 
 function doDrop()
 {
-  // based on mouse position get X-Y
-  // add lineair rail from center if no other point or gear is selected
-  // else add lineair rail from selected point
-  // extend rail to edge minus minimum distance
-  // add mountpoint on rail
-    x1 = discPoint.x;
-    y1 = discPoint.y;
-    
-    x2 = mouseX;
-    y2 = mouseY;    
-  
-  let dx = x1 - x2;
-  let dy = y1 - y2;
-  let a = atan2(dy, dx);
-  let l = paperWidth/4;
-  let px = x2 + cos(a)*l;
-  let py = y2 + sin(a)*l;
-  freeRail = new LineRail(px/ inchesToPoints,py/ inchesToPoints,x2/ inchesToPoints,y2/ inchesToPoints);
-  rails.push(freeRail); // push new rail to collection
+
+    // nothing selected or clicked on
+  // if in freemode add new mount point at mouse point and start tracking it 
+  let mp = new MountPoint("FREEMP",mouseX/inchesToPoints,mouseY/inchesToPoints);
+  selectedObject = mp;
+  console.log("added free mountpoint");
+  activeMountPoints.push(mp);
 }

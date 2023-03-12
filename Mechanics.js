@@ -32,11 +32,38 @@ let kPenLabelStart = 0.5*inchesToPoints;  // was 4.75
 let kPenLabelIncr =  0.5*inchesToPoints;  // was negative
 let kPenNotchIncr =  0.25*inchesToPoints; // was negative
 let kPaperRad = 4.625*inchesToPoints;
+let kSelectionDeadband = 5;
 
-class MountPoint {
+class CdmsObject{
+  constructor(type,name){
+    this.objType = type;
+    if (name === undefined){
+      this.objName = type + allCdmsObjects.length;
+    }
+    else {
+      this.objName = name;
+    }
+    allCdmsObjects.push(this);
+    this.selected = false;
+  }
+  unselect() {
+    this.selected = false;
+  }
+  
+  select() {
+    this.selected = true;
+  }
+
+  isClicked(){
+    return -1;
+  }
+
+}
+
+class MountPoint extends CdmsObject {
   
   constructor( typeStr,  x,  y) {
-
+    super("m",typeStr);
     this.radius=kMPDefaultRadius;
     this.typeStr = "MP";
     this.isFixed = false;
@@ -44,6 +71,7 @@ class MountPoint {
     this.forgroundColor = '#b4b4b4';
     this.strokeColor = '#323232';
     this.strokeSelectedColor = '#646464';
+    this.owner = null;
 
     if (arguments.length == 3){
       this.typeStr = typeStr;
@@ -116,22 +144,15 @@ class MountPoint {
     return dist(src.x, src.y, dst.x, dst.y);
   }
   
-  unselect() {
-    this.selected = false;
-  }
-  
-  select() {
-    this.selected = true;
-  }
-
   isClicked( mx,  my) {
     let p = this.getPosition();
-    return dist(mx, my, p.x, p.y) <= this.radius;
+    let d = dist(mx, my, p.x, p.y); 
+    return d <= this.radius? d : -1;
   }
 
-  getPosition( r) {
+  getPosition( r,free = false) {
     
-    if (r !== null && r !== undefined){
+    if (!free && r !== null && r !== undefined){
       if (this.itsChannel != null) {
         return this.itsChannel.getPosition(this.itsMountLength);
       } else {
@@ -147,19 +168,26 @@ class MountPoint {
   }
 
   // track mounting point along itschannel (rail or rod)
-  track (x,y) {
-    if (this.itsChannel){
+  track (x,y,free = false) {
+    if (this.itsChannel && ! free){
       let ratio = this.itsChannel.nearest(createVector(x,y));
       if (this.itsChannel instanceof  LineRail){
         this.itsMountLength = ratio;
       }
-      else
-      {
-         this.itsMountLength = this.itsChannel.distToNotch( ratio * dist(this.itsChannel.itsAnchor.x,this.itsChannel.itsAnchor.y,this.itsChannel.itsSlide.x,this.itsChannel.itsSlide.y));
+      else if(this.itsChannel instanceof Gear){
+        this.itsMountLength = this.itsChannel.distToNotch( ratio * abs(this.itsChannel.radius));
+      }
+      else {
+        this.itsMountLength = this.itsChannel.distToNotch( ratio * dist(this.itsChannel.itsAnchor.x,this.itsChannel.itsAnchor.y,this.itsChannel.itsSlide.x,this.itsChannel.itsSlide.y));
       }
       return ratio;
     }
     else{
+//      if (free){ // drop bounding channel
+//        this.itsChannel = null;
+//      }
+      this.x = x;
+      this.y = y;
       return 0;
     }
   }
@@ -181,9 +209,10 @@ class MountPoint {
   }
 }
 
-class ConnectingRod {
+class ConnectingRod extends CdmsObject {
   constructor( itsSlide,  itsAnchor,  rodNbr)
   {
+    super("cr",rodNbr);
     this.rodNbr = rodNbr;
     this.itsSlide = itsSlide;
     itsSlide.radius = kMPSlideRadius;
@@ -211,14 +240,6 @@ class ConnectingRod {
     // not relevant for connecting rods
   }
 
-  unselect() {
-    this.selected = false;
-  }
-  
-  select() {
-    this.selected = true;
-  }
-  
   invert() {
     this.isInverted = !this.isInverted;
     setupInversions[setupMode][this.rodNbr] = this.isInverted;
@@ -248,24 +269,10 @@ class ConnectingRod {
     }
   }
 
-  // shortest distance from point to rail
-  // https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
-  distTo(pt){
-    let x1 = this.x1;
-    let y1 = this.y1;
-    let x2 = this.x2;
-    let y2 = this.y2;
-    let x = pt.x;
-    let y = pt.y;
-    let d1 = dist(this.x1,this.y1,this.x2,this.y2);
-
-    d = abs((x2-x1)*(y1-y) - (x1-x)*(y2-y1)) / d1;
-    return d;
-   
-  }
   // TODO check code below
   // nearest point on rail
   nearest(pt){
+    
     let x1 = this.itsAnchor.x;
     let y1 = this.itsAnchor.y;
     let x2 = this.itsSlide.x;
@@ -297,35 +304,17 @@ class ConnectingRod {
     }
     let d1 = dist(xi,yi,x1,y1);
     let d2 = dist(xi,yi,x2,y2);
-    if (d1 < l && d2 < l) {         // point on rail
-      return constrain(d1 / l,0,1);
+    if (abs(atan2(yi-y1,xi-x1) - atan2(y2-y1,x2-x1)) < 0.01) {
+      return d1 / l;
     } 
-    else if(d1 < d2){               // closest end point
+    else { //if(d1 < d2){               // closest end point
       return 0; 
     }
-    else {
-      return 1;
-    }
-
   }
 
   isClicked( mx,  my) 
   {
-    let ap = this.itsAnchor.getPosition();
-    let sp = this.itsSlide.getPosition();
-
-    // mx,my, ap, ep522 293 546.1399 168.98767   492.651 451.97696
- /*   let gr = 5;
-    return (mx > min(ap.x-gr,sp.x-gr) && mx < max(ap.x+gr,sp.x+gr) &&
-            my > min(ap.y-gr,sp.y-gr) && my < max(ap.y+gr,sp.y+gr) &&
-           abs(atan2(my-sp.y,mx-sp.x) - atan2(ap.y-sp.y,ap.x-sp.x)) < radians(10)); */
-    let gr = 5; // pixel deadband
-    let Dx = ap.x - sp.x;
-    let Dy = ap.y - sp.y;
-    let D = Dx*Dx + Dy*Dy;
-    let d = Math.abs(Dy*mx - Dx*my - sp.x*ap.y+ap.x*sp.y);
-    d= d*d;
-    return ((d / D) < (gr*gr));
+    return calcDistanceToThickLineSegment(this.itsAnchor.getPosition(),this.itsSlide.getPosition(),createVector(mx,my),kSelectionDeadband);
   }
 
   notchToDist( n) {
@@ -336,16 +325,8 @@ class ConnectingRod {
     return 1 + (d - kCRLabelStart) / kCRLabelIncr;
   }
 
-  getSelectionCursor(x,y){
-    if (this.selected){
-      let ep = this.getPosition();
-
-      if(dist(ep.x,ep.y,x,y) < this.itsMP.radius){
-        cursor('../assets/pen.png',31,0);
-      } else{ 
-        cursor('../assets/penPosition.png',16,16);
-      }
-    }
+  track(mx,my){
+    
   }
 
   draw() {
@@ -386,9 +367,10 @@ class ConnectingRod {
   }
 }
 
-class PenRig  {
-
+class PenRig extends CdmsObject {
+  
   constructor( len,  angle,  itsMP) {
+    super("mp","");
     this.len = len; // in pen notch units
     this.angle = angle;
     this.itsRod =  itsMP.itsChannel;
@@ -445,49 +427,15 @@ class PenRig  {
   
   isClicked( mx,  my) 
   {
-    let ap = this.itsMP.getPosition();
-    let ep = this.getPosition();
-
-    /*let a = atan2(ap.y-ep.y,ap.x-ep.x);
-    let d = 6*inchesToPoints;
-    ap.x = ep.x + cos(a) * d;
-    ap.y = ep.y + sin(a) * d;
-
-    let gr = 5;
-
-    /// TODO find better solution, seems not to work when clicking near the endpoints
-
-    return (mx > min(ap.x-gr,ep.x-gr) && mx < max(ap.x+gr,ep.x+gr) &&
-            my > min(ap.y-gr,ep.y-gr) && my < max(ap.y+gr,ep.y+gr) &&
-           abs(atan2(my-ep.y,mx-ep.x) - atan2(ap.y-ep.y,ap.x-ep.x)) < radians(10)); 
-    */
-
-    /// https://stackoverflow.com/questions/14371841/finding-if-a-point-is-on-a-line/14372111#14372111
-    /// https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line#Line_defined_by_two_points
-
-    let gr = 5; // pixel deadband
-    let Dx = ap.x - ep.x;
-    let Dy = ap.y - ep.y;
-    let D = Dx*Dx + Dy*Dy;
-    let d = Math.abs(Dy*mx - Dx*my - ep.x*ap.y+ap.x*ep.y);
-    d= d*d;
-    return ((d / D) < (gr*gr));
+    return calcDistanceToThickLineSegment(this.itsMP.getPosition(),this.getPosition(),createVector(mx,my),kSelectionDeadband);
   }
   
-  unselect() {
-    this.selected = false;
-  }
-  
-  select() {
-    this.selected = true;
-  }
-
   getSelectionCursor(x,y){
     if (this.selected){
       let ep = this.getPosition();
 
       if(dist(ep.x,ep.y,x,y) < this.itsMP.radius){
-        cursor('../assets/pen.png',31,0);
+        cursor('../assets/pen.png',1,31);
       } else{ 
         cursor('../assets/penPosition.png',16,16);
       }
@@ -545,6 +493,31 @@ class PenRig  {
     this.len = constrain(this.len, 1, 8);
     setupPens[setupMode][0] = this.len;
   }
+
+  // track mounting point along itschannel (rail or rod)
+  track (x,y) {
+
+    // set pr.angle and pr.len
+      let ap = this.itsMP.getPosition(); // position of mount
+      let pp = this.getPosition(); // position of pen
+      /*let startDragLen = dist(startDragX,startDragY,pp.x,pp.y);
+      let gPenAngle, lenScale;
+      if (startDragLen/(0.5*inchesToPoints) > pr.len) {
+        // We are on opposite side of mount point from pen
+        gPenAngle = atan2(ap.y-pp.y,ap.x-pp.x); // this is for moving pen when we're on the opposite side from pen
+        lenScale= -1;
+      } else {
+        gPenAngle = atan2(pp.y-ap.y,pp.x-ap.x); // this causes us to be moving pen arm if we're close to pen...
+        lenScale = 1;
+      }
+      let lAngleOffset = radians(pr.angle) - gPenAngle; // adjustment to stored angle, in radians*/
+      let desiredAngle = atan2(mouseY-ap.y,mouseX-ap.x) - this.itsRod.armAngle;
+      this.angle = round(degrees(desiredAngle) / 5)*5; // why only increment of 5° ???
+      let desLen = dist(mouseX, mouseY, ap.x, ap.y)/(0.5*inchesToPoints);
+      this.len = round(desLen / 0.125)*0.125; // why only increment by 1/8
+      return desLen;
+  }
+  
   
   draw() {
     this.itsMP.draw();
@@ -599,91 +572,35 @@ class PenRig  {
 }
 /// why not a specialized connecting rod ? with no moving AP or SP
 /// makes adapting the rail easier since the AP and SP can be moved
-class LineRail  {
+class LineRail extends CdmsObject {
   constructor( x1,  y1,  x2,   y2) {
+    super("LR");
     this.selected = false;
+    this.pt1 = new MountPoint(this.objName + 'P1',x1,y1);
+    mountPoints.push(this.pt1);
+    this.pt2 = new MountPoint(this.objName + 'P2',x2,y2);
+    mountPoints.push(this.pt2);
     this.x1 = x1 * inchesToPoints;
     this.y1 = y1 * inchesToPoints;
     this.x2 = x2 * inchesToPoints;
     this.y2 = y2 * inchesToPoints;
-
   }
+
   getPosition( ratio) {
-  // console.log('Getpos linerail # x:',this.x1 + (this.x2 - this.x1) * ratio, ' y:',this.y1 + (this.y2 - this.y1) * ratio);
-
-  /// alt : 
-  let armAngle = atan2((this.y2-this.y1),(this.x2-this.x1));
-  let l = ratio;
-  return createVector(this.x1 + l*cos(armAngle),this. y1 + l*sin(armAngle));
-
-//    return createVector(this.x1 + (this.x2 - this.x1) * ratio, this.y1 + (this.y2 - this.y1) * ratio);
+  // console.log('Getpos linerail # x:',this.pt1.x + (this.pt2.x - this.pt1.x) * ratio, ' y:',this.pt1.y + (this.pt2.y - this.pt1.y) * ratio);
+    let armAngle = atan2((this.pt2.y-this.pt1.y),(this.pt2.x-this.pt1.x));
+    let l = ratio;
+    return createVector(this.pt1.x + l*cos(armAngle),this.pt1.y + l*sin(armAngle));
   }  
-  // shortest distance from point to rail
-  // https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
-  distTo(pt){
-    let x1 = this.x1;
-    let y1 = this.y1;
-    let x2 = this.x2;
-    let y2 = this.y2;
-    let x = pt.x;
-    let y = pt.y;
-    let d1 = dist(this.x1,this.y1,this.x2,this.y2);
-
-    d = abs((x2-x1)*(y1-y) - (x1-x)*(y2-y1)) / d1;
-    return d;
-   
-  }
-  // TODO check code below
-  // nearest point on rail
+  // return ratio of linerail to the nearest point
   nearest(pt){
-    let x1 = this.x1;
-    let y1 = this.y1;
-    let x2 = this.x2;
-    let y2 = this.y2;
-    let xp = pt.x;
-    let yp = pt.y;
-    let l = dist(this.x1,this.y1,this.x2,this.y2);
-    
-    let xi = 0;
-    let yi = 0;
-    if (x2 == x1){
-      xi = x1;
-      yi = pt.y;
-    }
-    else if (y2 == y1){
-      xi = pt.x;
-      yi = y1;
-    }
-    else{
-      let A = (y2-y1)/(x2-x1);
-      let B = y1 - A*x1;
-      xi = (xp + A*yp - A*B) / (A * A + 1);
-      yi = A*xi + B;
-    }
-    let d1 = dist(xi,yi,this.x1,this.y1);
-    let d2 = dist(xi,yi,this.x2,this.y2);
-    if (d1 < l && d2 < l) {         // point on rail
-      d2 = dist(this.x1,this.y1,this.x2,this.y2);
-      return d1 ;
-    } 
-    else if(d1 < d2){               // closest end point
-      return 0; 
-    }
-    else {
-      return l;
-    }
-
+    let pti = calcNearestPointOnSegment(this.pt1, this.pt2, pt);
+    return dist(this.pt1.x,this.pt1.y,pti.x,pti.y);
   }
 
   isClicked( mx,  my) 
   {
-    let gr = 5; // pixel deadband
-    let Dx = this.x1 - this.x2;
-    let Dy = this.y1 - this.y2;
-    let D = Dx*Dx + Dy*Dy;
-    let d = Math.abs(Dy*mx - Dx*my - this.x1*this.y2+this.x2*this.y1);
-    d= d*d;
-    return ((d / D) < (gr*gr));
+    return calcDistanceToThickLineSegment(this.pt1,this.pt2,createVector(mx,my),kSelectionDeadband);
   }
 
   draw() {
@@ -691,19 +608,19 @@ class LineRail  {
     stroke(getColor(110));// sets color '#6e6e6e'
     strokeWeight(0.23 * inchesToPoints);
 
-    line(this.x1,this.y1,this.x2,this.y2);
+    line(this.pt1.x,this.pt1.y,this.pt2.x,this.pt2.y);
   }
   
   snugTo( moveable, fixed) {
-    let dx1 = this.x1-fixed.x;
-    let dy1 = this.y1-fixed.y;
-    let dx2 = this.x2-fixed.x;
-    let dy2 = this.y2-fixed.y;
+    let dx1 = this.pt1.x-fixed.cpt.x;
+    let dy1 = this.pt1.y-fixed.cpt.y;
+    let dx2 = this.pt2.x-fixed.cpt.x;
+    let dy2 = this.pt2.y-fixed.cpt.y;
     let a1 = atan2(dy1,dx1);
     let a2 = atan2(dy2,dx2);
-    let d1 = dist(this.x1,this.y1,fixed.x,fixed.y);
-    let d2 = dist(this.x2,this.y2,fixed.x,fixed.y);
-    let l = dist(this.x1,this.y1,this.x2,this.y2);
+    let d1 = dist(this.pt1.x,this.pt1.y,fixed.cpt.x,fixed.cpt.y);
+    let d2 = dist(this.pt2.x,this.pt2.y,fixed.cpt.x,fixed.cpt.y);
+    let l = dist(this.pt1.x,this.pt1.y,this.pt2.x,this.pt2.y);
     let adiff = abs(a1-a2);
     let r = moveable.radius + fixed.radius + meshGap;
     let mountRatio;
@@ -714,18 +631,18 @@ class LineRail  {
       // mountLength = r - d1
       mountRatio = (r - d1);
       // find position on line (if any) which corresponds to two radii
-    } else if ( abs(this.x2 - this.x1) < 0.01 ) {
+    } else if ( abs(this.pt2.x - this.pt1.x) < 0.01 ) {
       let m = 0;
-      let c = (-m * this.y1 + this.x1);
+      let c = (-m * this.pt1.y + this.pt1.x);
       let aprim = (1 + m*m);
-      let bprim = 2 * m * (c - fixed.x) - 2 * fixed.y;
-      let cprim = fixed.y * fixed.y + (c - fixed.x) * (c - fixed.x) - r * r;
+      let bprim = 2 * m * (c - fixed.cpt.x) - 2 * fixed.cpt.y;
+      let cprim = fixed.cpt.y * fixed.cpt.y + (c - fixed.cpt.x) * (c - fixed.cpt.x) - r * r;
       let delta = bprim * bprim - 4*aprim*cprim;
       let my1 = (-bprim + sqrt(delta)) / (2 * aprim);
       let mx1 = m * my1 + c;
       let my2 = (-bprim - sqrt(delta)) / (2 * aprim); // use this if it's better
       let mx2 = m * my2 + c;
-      if (my1 < min(this.y1, this.y2) || my1 > max(this.y1, this.y2) || 
+      if (my1 < min(this.pt1.y, this.pt2.y) || my1 > max(this.pt1.y, this.pt2.y) || 
           dist(moveable.x, moveable.y, mx2, my2) < dist(moveable.x, moveable.y, mx1, mx2)) {
         mx1 = mx2;
         my1 = my2;
@@ -736,23 +653,23 @@ class LineRail  {
         mountRatio = -1;
       } else {
         /// alt : moet dit nog geschaald worden naar notch waarden ?
-        // mountLength = dist(this.x1, this.y1, mx1, my1); 
+        // mountLength = dist(this.pt1.x, this.pt1.y, mx1, my1); 
 
-        mountRatio = dist(this.x1, this.y1, mx1, my1) ;
+        mountRatio = dist(this.pt1.x, this.pt1.y, mx1, my1) ;
       }
     } else { // we likely have a gear on one of the lines on the left
       // given the line formed by x1,y1 x2,y2, find the two spots which are desiredRadius from fixed center.
-      let m = (this.y2 - this.y1) / (this.x2 - this.x1);
-      let c = (-m * this.x1 + this.y1);
+      let m = (this.pt2.y - this.pt1.y) / (this.pt2.x - this.pt1.x);
+      let c = (-m * this.pt1.x + this.pt1.y);
       let aprim = (1 + m*m);
-      let bprim = 2 * m * (c - fixed.y) - 2 * fixed.x;
-      let cprim = fixed.x * fixed.x + (c - fixed.y) * (c - fixed.y) - r * r;
+      let bprim = 2 * m * (c - fixed.cpt.y) - 2 * fixed.cpt.x;
+      let cprim = fixed.cpt.x * fixed.cpt.x + (c - fixed.cpt.y) * (c - fixed.cpt.y) - r * r;
       let delta = bprim * bprim - 4*aprim*cprim;
       let mx1 = (-bprim + sqrt(delta)) / (2 * aprim);
       let my1 = m * mx1 + c;
       let mx2 = (-bprim - sqrt(delta)) / (2 * aprim); // use this if it's better
       let my2 = m * mx2 + c;
-      if (mx1 < min(this.x1,this.x2) || mx1 > max(this.x1,this.x2) || my1 < min(this.y1,this.y2) || my1 > max(this.y1,this.y2) ||
+      if (mx1 < min(this.pt1.x,this.pt2.x) || mx1 > max(this.pt1.x,this.pt2.x) || my1 < min(this.pt1.y,this.pt2.y) || my1 > max(this.pt1.y,this.pt2.y) ||
           dist(moveable.x,moveable.y,mx2,my2) < dist(moveable.x,moveable.y,mx1,mx2)) {
         mx1 = mx2;
         my1 = my2;
@@ -763,8 +680,8 @@ class LineRail  {
         mountRatio = -1;
       } else {
         /// alt : moet dit nog geschaald worden naar notch waarden ?
-        // mountLength = dist(this.x1, this.y1, mx1, my1); 
-        mountRatio = dist(this.x1, this.y1, mx1, my1) ;
+        // mountLength = dist(this.pt1.x, this.pt1.y, mx1, my1); 
+        mountRatio = dist(this.pt1.x, this.pt1.y, mx1, my1) ;
       }
     }
     if (mountRatio < 0 || mountRatio > l || isNaN(mountRatio) ) {
@@ -772,20 +689,29 @@ class LineRail  {
       mountRatio = 0;
     }
     mountRatio = constrain(mountRatio,0,l);
-    //mountLength = mountRatio * dist(this.x1,this.y1,this.x2,this.y2);
+    //mountLength = mountRatio * dist(this.pt1.x,this.pt1.y,this.pt2.x,this.pt2.y);
     //moveable.mount(this,mountLength);
     moveable.mount(this,mountRatio);
   }
 }
 
-class ArcRail {
+class ArcRail extends CdmsObject {
   constructor( cx,  cy,  rad,  begAngle,  endAngle) {
+    super("AR");
     this.selected = false;
     this.cx = cx*inchesToPoints;
     this.cy = cy*inchesToPoints;
     this.rad = rad*inchesToPoints;
     this.begAngle = begAngle;
     this.endAngle = endAngle;  
+    this.pt1 = new MountPoint(this.objName + 'CTR',cx,cy);
+    this.pt1.radius = 6;
+    mountPoints.push(this.pt1);
+    this.pt1 = new MountPoint(this.objName + 'P1',cx+cos(this.begAngle)*rad,cy+sin(this.begAngle)*rad);
+    mountPoints.push(this.pt1);
+    this.pt2 = new MountPoint(this.objName + 'P2',cx+cos(this.endAngle)*rad,cy+sin(this.endAngle)*rad);
+    mountPoints.push(this.pt2);
+
   }
 
   getPosition( ratio) {
@@ -798,10 +724,6 @@ class ArcRail {
 
     return createVector(this.cx+cos(a)*this.rad, this.cy+sin(a)*this.rad);
   }  
-  // shortest distance from point to rail
-  distTo(pt){
-
-  }
   // nearest point on rail
   nearest(pt){
     // is point between start and end angle ? else which is closest
@@ -830,8 +752,8 @@ class ArcRail {
 //    println("  rail = " + cx/72 + " " + cy/72 + " " + rad/72);
 //    println("  angles = " + degrees(begAngle) + " " + degrees(endAngle));
 
-  let x1 = fixed.x;
-  let y1 = fixed.y;
+  let x1 = fixed.cpt.x;
+  let y1 = fixed.cpt.y;
   let r1 = moveable.radius+fixed.radius+meshGap;
   let x2 = this.cx;
   let y2 = this.cy;
@@ -881,6 +803,8 @@ class ArcRail {
     noFill();
     stroke(getColor(110));// sets color '#6e6e6e'
     strokeWeight(0.23*inchesToPoints);
+    this.begAngle = atan2(this.pt1.y - this.cy, this.pt1.x - this.cx);
+    this.endAngle = atan2(this.pt2.y - this.cy, this.pt2.x - this.cx);
     arc(this.cx, this.cy, this.rad, this.rad, this.begAngle, this.endAngle);
   }
 }
@@ -928,18 +852,18 @@ function gearInit()
   gearSetups.set( 30, new GearSetup( 30, 0.3125,  0.75,    1));
 }
 
-class Gear {
+class Gear extends CdmsObject {
      
     constructor( teeth,  setupIdx,  nom) {
+      super("g",nom);
     this.itsSetup = gearSetups.get(teeth);
     this.teeth = teeth;
     this.nom = nom;
     this.setupIdx = setupIdx;
     this.radius = (this.teeth*toothRadius/PI);
-    this.x = 0;
-    this.y = 0;
+    this.cpt = {x:0,y:0};
     this.phase = 0;
-    this.meshGears = [];
+    this.meshGears = new Map();
     this.stackGears = [];
 
     this.rotation =0;
@@ -953,19 +877,20 @@ class Gear {
     this.contributesToCycle = true;
     this.itsChannel = {};
     this.axle = null;
+    if (this.itsSetup != null) {
+      this.notchStart = this.itsSetup.notchStart;
+      this.notchEnd   = this.itsSetup.notchEnd;
+    } else {
+      // Make a guesstimate
+      this.notchStart = max(this.radius * 0.1,16 * seventyTwoScale);
+      this.notchEnd = this.radius - max(this.radius * 0.1,8 * seventyTwoScale);
+    }
     
   }
 
   isClicked( mx,  my) {
-    return dist(mx, my, this.x, this.y) <= this.radius;
-  }
-
-   unselect() {
-    this.selected = false;
-  }
-  
-   select() {
-    this.selected = true;
+    let d  = dist(mx, my, this.cpt.x, this.cpt.y);
+    return  d <= this.radius+kSelectionDeadband?abs(d - this.radius):-1;
   }
   
   nudge( direction,  keycode) {
@@ -980,64 +905,49 @@ class Gear {
     if (teeth < 24) {
       teeth = 150;
     } else if (teeth > 150) {
-      teeth = 30;
+      teeth = 24;
     }
     setupTeeth[setupMode][gearIdx] = teeth;
+    this.teeth = teeth;
     drawingSetup(setupMode, false);
+    /// updateSetup();
     if (loadError != 0) { // disallow invalid meshes
       // java.awt.Toolkit.getDefaultToolkit().beep();
       setupTeeth[setupMode][gearIdx] = oldTeeth;
+      this.teeth = oldTeeth;
       drawingSetup(setupMode, false);
+      /// updateSetup();
     }
     selectedObject = activeGears[gearIdx];
     selectedObject.select();
   }
-  // shortest distance from point to rail
-  // https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
-  distTo(pt){
-    let x1 = this.x1;
-    let y1 = this.y1;
-    let x2 = this.x2;
-    let y2 = this.y2;
-    let x = pt.x;
-    let y = pt.y;
-    let d1 = dist(this.x1,this.y1,this.x2,this.y2);
-
-    d = abs((x2-x1)*(y1-y) - (x1-x)*(y2-y1)) / d1;
-    return d;
-   
-  }
   // TODO check code below
   // nearest point on rail
   nearest(pt){
-    let notchStart = 0;
-    let notchEnd = this.radius;
-    if (this.itsSetup != null) {
-      notchStart = this.itsSetup.notchStart;
-      notchEnd   = this.itsSetup.notchEnd;
-    } else {
-      // Make a guesstimate
-      notchStart = max(this.radius * 0.1,16 * seventyTwoScale);
-      notchEnd = this.radius - max(this.radius * 0.1,8 * seventyTwoScale);
-    }
-    let xc = this.x;
-    let yc = this.y;
-    let x1 = xc + notchStart * cos(this.rotation+this.phase);
-    let y1 = notchStart * sin(this.rotation+this.phase);
-    let x2 = xc + notchEnd * cos(this.rotation+this.phase);
-    let y2 = notchEnd * sin(this.rotation+this.phase);
+    
+    let xc = this.cpt.x;
+    let yc = this.cpt.y;
+    let x1 = xc + this.notchStart * cos(this.rotation+this.phase);
+    let y1 = yc + this.notchStart * sin(this.rotation+this.phase);
+    let x2 = xc + this.notchEnd * cos(this.rotation+this.phase);
+    let y2 = yc + this.notchEnd * sin(this.rotation+this.phase);
     let xp = pt.x;
     let yp = pt.y;
     let l = dist(x1,y1,x2,y2);
+    // rail equation :
+    // y = (y2-y1)/(x2-x1)*x - (y2-y1)/(x2-x1)*x1 + y1 
+    //
+    // make A = (y2-y1)/(x2-x1)
+    // then the perpendicular equation is
+    // y = -1/Ax + B
+    // determine B by applying the pt
     let xi = 0;
     let yi = 0;
     if (x2 == x1){
-      xi = x1;
-      yi = pt.y;
+      return constrain((yp - y1)/(y2-y1),0,1);
     }
     else if (y2 == y1){
-      xi = pt.x;
-      yi = y1;
+      return constrain((xp - x1)/(x2-x1),0,1);
     }
     else{
       let A = (y2-y1)/(x2-x1);
@@ -1045,18 +955,13 @@ class Gear {
       xi = (xp + A*yp - A*B) / (A * A + 1);
       yi = A*xi + B;
     }
-    let d1 = dist(xi,yi,x1,y1);
-    let d2 = dist(xi,yi,x2,y2);
-    if (d1 < l && d2 < l) {         // point on rail
-      d2 = dist(x1,y1,x2,y2);
-      return constrain(d1 / d2,0,1);
-    } 
-    else if(d1 < d2){               // closest end point
-      return 0; 
-    }
-    else {
-      return 1;
-    }
+    let d1 = constrain(dist(xi,yi,xc,yc),this.notchStart,this.notchEnd);
+    if (abs(atan2(yi-yc,xi-xc) - atan2(y2-yc,x2-xc)) < 0.01) {
+        return constrain(d1 / this.radius,0,1);
+      } 
+      else { 
+        return this.notchStart / this.radius; 
+      }
   }
  
   findNextTeeth( teeth,  direction) {
@@ -1083,14 +988,16 @@ class Gear {
     let d = this.notchToDist(r); // kGearLabelStart+(r-1)*kGearLabelIncr;
 //    console.log('Getpos ',this.nom,' # x:',this.x + cos(this.rotation + this.phase) * d, ' y:',this.y + sin(this.rotation + this.phase) * d);
 
-    return createVector(this.x + cos(this.rotation + this.phase) * d, this.y + sin(this.rotation + this.phase) * d);
+    return createVector(this.cpt.x + cos(this.rotation + this.phase) * d, this.cpt.y + sin(this.rotation + this.phase) * d);
   }  
 
   meshTo( parent) {
-    parent.meshGears.push(this);
+    if (!parent.meshGears.has(this.nom)) {  
+      parent.meshGears.set(this.nom,this);
+    }
 
     // work out phase for gear meshing so teeth render interlaced
-    let meshAngle = atan2(this.y - parent.y, this.x - parent.x); // angle where gears are going to touch (on parent gear)
+    let meshAngle = atan2(this.cpt.y - parent.cpt.y, this.cpt.x - parent.cpt.x); // angle where gears are going to touch (on parent gear)
     if (meshAngle < 0)
       meshAngle += TWO_PI;
 
@@ -1133,6 +1040,7 @@ class Gear {
         loadError = 1;
       let mountNotch = this.distToNotch(mountRadDist);
 
+      /// moveable.mountRatio = mountNotch;
       moveable.mount(this, mountNotch);
         // find position on line (if any) which corresponds to two radii
     }
@@ -1140,18 +1048,22 @@ class Gear {
 
   stackTo( parent) {
     parent.stackGears.push(this);
-    this.x = parent.x;
-    this.y = parent.y;
+    this.cpt.x = parent.cpt.x;
+    this.cpt.y = parent.cpt.y;
     this.phase = parent.phase;
   }
 
   recalcPosition() { // used for orbiting gears
     let pt = this.itsChannel.getPosition(this.mountRatio);
-    this.x = pt.x;
-    this.y = pt.y;
+    this.cpt.x = pt.x;
+    this.cpt.y = pt.y;
     if (this.axle != null){ // update axle coordinate too
       this.axle.x = pt.x;
       this.axle.y = pt.y;
+    }
+    if (this.pt1){
+      this.pt1.x = pt.x;
+      this.pt1.y = pt.y;
     }
     // console.log('Recalc ',this.nom,'# r ',this.rotation,' t=',this.teeth);
   }
@@ -1160,17 +1072,30 @@ class Gear {
     this.itsChannel = pt.itsChannel;
     this.mountRatio = pt.itsMountLength;
      
-    this.x = pt.x;
-    this.y = pt.y;
-    this.axle = pt;
+    //this.cpt.x = pt.x;
+    //this.cpt.y = pt.y;
+    //this.axle = pt;
+    //this.pt1 = new MountPoint(this.objName + 'GRP',pt.x/inchesToPoints,pt.y/inchesToPoints);
+    //mountPoints.push(this.pt1);
+    this.cpt = pt;
   }
+
   mount( ch,  r =0.0) {
     this.itsChannel = ch;
     this.mountRatio = r;
     let pt = ch.getPosition(r);
-    this.x = pt.x;
-    this.y = pt.y;
+    //this.cpt.x = pt.x;
+    //this.cpt.y = pt.y;
     this.axle = null;
+    if (this.pt1 === undefined){
+      this.pt1 = new MountPoint(this.objName + 'GRP',pt.x/inchesToPoints,pt.y/inchesToPoints);
+      mountPoints.push(this.pt1);
+    }
+    else{
+      this.pt1.x = pt.x ;
+      this.pt1.y = pt.y ;
+    }
+    this.cpt = this.pt1;
   }
 
   crank( pos) {
@@ -1178,7 +1103,7 @@ class Gear {
       this.rotation = pos;
       // console.log('Crank  ',this.nom,':',pos,' t =',this.teeth); 
       let rTeeth = this.rotation * this.teeth;
-      for ( let mGear of this.meshGears) {
+      for ( let mGear of this.meshGears.values()) {
          mGear.crank(-(rTeeth) / mGear.teeth);
       }
       for ( let sGear of this.stackGears) {
@@ -1189,7 +1114,7 @@ class Gear {
     }
     else {
       // this gear is fixed, but meshgears will rotate to the passed in pos
-      for ( let mfGear of this.meshGears) {
+      for ( let mfGear of this.meshGears.values()) {
         mfGear.crank(pos + ( pos * this.teeth ) / mfGear.teeth);
       }
     }
@@ -1203,7 +1128,7 @@ class Gear {
     stroke(getColor(0));// sets color '#000000'
 
     push();
-      translate(this.x, this.y);
+      translate(this.cpt.x, this.cpt.y);
       rotate(this.rotation+this.phase);
 
       let r1 = this.radius - 0.07 * inchesToPoints;
@@ -1264,18 +1189,11 @@ class Gear {
         ellipse(0, 0, kGearMountRadius, kGearMountRadius);
 
         push();
-          let notchStart ={};
-          let notchEnd={};
           let nbrLabels={};
           if (this.itsSetup != null) {
-            notchStart = this.itsSetup.notchStart;
-            notchEnd   = this.itsSetup.notchEnd;
             nbrLabels  = this.itsSetup.nbrLabels;
           } else {
-            // Make a guesstimate
-            notchStart = max(this.radius * 0.1,16 * seventyTwoScale);
-            notchEnd = this.radius - max(this.radius * 0.1,8 * seventyTwoScale);
-            nbrLabels = 1 + int((notchEnd - notchStart - 0.2 * inchesToPoints) / (0.5 * inchesToPoints));
+            nbrLabels = 1 + int((this.notchEnd - this.notchStart - 0.2 * inchesToPoints) / (0.5 * inchesToPoints));
           }
           textFont(nFont);
           textAlign(CENTER);
@@ -1292,7 +1210,7 @@ class Gear {
           }
           fill(getColor(192));// sets color '#c0c0c0'
           noStroke();
-          rect(notchStart, -kGearNotchWidth/2, notchEnd-notchStart, kGearNotchWidth);
+          rect(this.notchStart, -kGearNotchWidth/2, this.notchEnd-this.notchStart, kGearNotchWidth);
         pop();
       }
         

@@ -1,3 +1,106 @@
+
+// https://stackoverflow.com/questions/6865832/detecting-if-a-point-is-of-a-line-segment
+// https://jsfiddle.net/c06zdxtL/2/
+// Tested and Working
+function calcNearestRatioOnLine(line1, line2, pnt) {
+  let Dx = line2.x - line1.x;
+  let Dy = line2.y - line1.y;
+  let L2 = ((Dx * Dx) + (Dy * Dy));
+  if (L2 == 0) return 0;
+  return (((pnt.x - line1.x) * Dx) + ((pnt.y - line1.y) * Dy)) / L2;
+}
+
+function calcNearestPointOnLine(line1, line2, pnt) {
+  let Dx = line2.x - line1.x;
+  let Dy = line2.y - line1.y;
+  let L2 = ((Dx * Dx) + (Dy * Dy));
+  if (L2 == 0) return false;
+  let r = (((pnt.x - line1.x) * Dx) + ((pnt.y - line1.y) * Dy)) / L2;
+
+  return {
+    x: line1.x + (r * Dx),
+    y: line1.y + (r * Dy)
+  };
+}
+
+function calcNearestPointOnSegment(line1, line2, pnt) {
+  let Dx = line2.x - line1.x;
+  let Dy = line2.y - line1.y;
+  let L2 = ((Dx * Dx) + (Dy * Dy));
+  if (L2 == 0) return false;
+  let r = constrain((((pnt.x - line1.x) * Dx) + ((pnt.y - line1.y) * Dy)) / L2,0,1);
+
+  return {
+    x: line1.x + (r * Dx),
+    y: line1.y + (r * Dy)
+  };
+}
+
+function calcDistancePointToLine(line1, line2, pnt) {
+  let Dx = line2.x - line1.x;
+  let Dy = line2.y - line1.y;
+  let L2 = ((Dx * Dx) + (Dy * Dy));
+  if (L2 == 0) return false;
+  let s = (((line1.y - pnt.y) * Dx) - ((line1.x - pnt.x) * Dy)) / L2;
+  return Math.abs(s) * Math.sqrt(L2);
+}
+
+function calcIsInsideLineSegment(line1, line2, pnt) {
+  let Dx = line2.x - line1.x;
+  let Dy = line2.y - line1.y;
+  let L2 = ((Dx * Dx) + (Dy * Dy));
+  if (L2 == 0) return false;
+  let r = (((pnt.x - line1.x) * Dx) + ((pnt.y - line1.y) * Dy)) / L2;
+
+  return (0 <= r) && (r <= 1);
+}
+
+function calcIsInsideThickLineSegment(line1, line2, pnt, lineThickness) {
+  let Dx = line2.x - line1.x;
+  let Dy = line2.y - line1.y;
+  let L2 = ((Dx * Dx) + (Dy * Dy));
+  if (L2 == 0) return false;
+  let r = (((pnt.x - line1.x) * Dx) + ((pnt.y - line1.y) * Dy)) / L2;
+
+  //Assume line thickness is circular
+  if (r < 0) { // before line1 point 
+    //Outside line1
+    return (Math.sqrt(((line1.x - pnt.x) * (line1.x - pnt.x)) + ((line1.y - pnt.y) * (line1.y - pnt.y))) <= lineThickness);
+  } else if ((0 <= r) && (r <= 1)) {
+    //On the line segment
+    let s = (((line1.y - pnt.y) * Dx) - ((line1.x - pnt.x) * Dy)) / L2;
+    return (Math.abs(s) * Math.sqrt(L2) <= lineThickness);
+  } else {
+    //Outside line2
+    return (Math.sqrt(((line2.x - pnt.x) * (line2.x - pnt.x)) + ((line2.y - pnt.y) * (line2.y - pnt.y))) <= lineThickness);
+  }
+}
+  
+function calcDistanceToThickLineSegment(line1, line2, pnt, lineThickness) {
+  let Dx = line2.x - line1.x;
+  let Dy = line2.y - line1.y;
+  let L2 = ((Dx * Dx) + (Dy * Dy));
+  if (L2 == 0) return false;
+  let r = (((pnt.x - line1.x) * Dx) + ((pnt.y - line1.y) * Dy)) / L2;
+  let d = 0;
+
+  //Assume line thickness is circular
+  if (r < 0) { // before line1 point 
+    //Outside line1
+    d = Math.sqrt(((line1.x - pnt.x) * (line1.x - pnt.x)) + ((line1.y - pnt.y) * (line1.y - pnt.y)))
+    return ( d <= lineThickness ? d : -1);
+  } else if ((0 <= r) && (r <= 1)) {
+    //On the line segment
+    let s = (((line1.y - pnt.y) * Dx) - ((line1.x - pnt.x) * Dy)) / L2;
+    d = Math.abs(s) * Math.sqrt(L2);
+    return (d <= lineThickness ? d : -1);
+  } else {
+    //Outside line2
+    d = Math.sqrt(((line2.x - pnt.x) * (line2.x - pnt.x)) + ((line2.y - pnt.y) * (line2.y - pnt.y)));
+    return (d <= lineThickness ? d : -1);
+  }
+}
+
 function saveFilename( prefix)
 {
   let sf = prefix + year() + "-" + month() + "-" + day() + "_" + hour() + "." + minute() + "." + second() + ".png";
@@ -115,8 +218,8 @@ function drag() {
     //
     if (selectedObject instanceof Gear) {
       let g = selectedObject;
-      let dm = dist(mouseX, mouseY, g.x, g.y);
-      let ds = dist(startDragX, startDragY, g.x, g.y);
+      let dm = dist(mouseX, mouseY, g.cpt.x, g.cpt.y);
+      let ds = dist(startDragX, startDragY, g.cpt.x, g.cpt.y);
       if (abs(dm-ds) > 10) {
         direction = (dm > ds)? 1 : -1;
         keycode = (direction == 1)? UP_ARROW: DOWN_ARROW;
@@ -128,72 +231,94 @@ function drag() {
       // using proper penarm quantization.
       // we solve rotation first (using mouse -> arm pivot, translated for parent), then length is fairly easy.
       //
-      let pr = selectedObject;
-      let dm = dist(mouseX, mouseY, startDragX, startDragX);
-      if (abs(dm) > 10) {
-        let ap = pr.itsMP.getPosition(); // position of mount
-        let pp = pr.getPosition(); // position of pen
-        let startDragLen = dist(startDragX,startDragY,pp.x,pp.y);
-        let gPenAngle, lenScale;
-        if (startDragLen/(0.5*inchesToPoints) > pr.len) {
-          // We are on opposite side of mount point from pen
-          gPenAngle = atan2(ap.y-pp.y,ap.x-pp.x); // this is for moving pen when we're on the opposite side from pen
-          lenScale= -1;
-        } else {
-          gPenAngle = atan2(pp.y-ap.y,pp.x-ap.x); // this causes us to be moving pen arm if we're close to pen...
-          lenScale = 1;
-        }
-        let lAngleOffset = radians(pr.angle) - gPenAngle; // adjustment to stored angle, in radians
-        let desiredAngle = atan2(mouseY-ap.y,mouseX-ap.x);
-        pr.angle = degrees(desiredAngle+lAngleOffset);
-        pr.angle = round(pr.angle / 5)*5;
-        let oLen = dist(startDragX,startDragY,ap.x,ap.y);
-        let desLen = dist(mouseX, mouseY, ap.x, ap.y);
-        pr.len += lenScale*(desLen-oLen)/(0.5*inchesToPoints);
-        pr.len = round(pr.len / 0.125)*0.125;
+      
+        let pr = selectedObject;
+        pr.track(mouseX,mouseY);
+
         setupPens[setupMode][1] = pr.angle;
         setupPens[setupMode][0] = pr.len;
         doSaveSetup();
         startDragX = mouseX;
         startDragY = mouseY;
-      }
-    } else if (selectedObject instanceof MountPoint && freeMode) {
-      // Mount points can move anywhere and are not bound to rails, rods or gears
-        selectedObject.x = mouseX;
-        selectedObject.y = mouseY;
-        direction = 0; // disable nudging
-// only if near a rail
-/*        let np = selectedObject.track(mouseX, mouseY);
-        selectedObject.x = np.x;
-        selectedObject.y = np.y;
-  */
     } else { // mount point, rail, connection rod
-      let rotation = selectedObject.track(mouseX, mouseY);
-      let dm = dist(mouseX, mouseY, startDragX, startDragX);
-      if (abs(dm) > 10) {
-        let a = atan2(mouseY-startDragY, mouseX-startDragX);
-        if (a >= -PI/4 && a <= PI/4) {
-          direction = 1;
-          keycode = RIGHT_ARROW;
-        } else if (a >= 3*PI/4 || a <= -3*PI/4) {
-          direction = -1;
-          keycode = LEFT_ARROW;
-        } else if (a >= -3*PI/4 && a <= -PI/4) {
-          direction = 1;
-          keycode = UP_ARROW;
-        } else if (a >= PI/4 && a <= 3*PI/4) {
-          direction = -1;
-          keycode = DOWN_ARROW;
-        }
-        startDragX = mouseX;
-        startDragY = mouseY;
-      }
+      selectedObject.track(mouseX, mouseY,freeMode);
       direction = 0;
     } 
     if (direction){
       nudge(direction,keycode);
     }
   }
+}
+
+function dropObject() {
+  isDragging = false;
+  if (selectedObject instanceof MountPoint ){
+    if(! selectedObject.itsChannel){ // check if we dropped on a channel
+      let clst = getClosest(false);
+      if (clst[0].item instanceof LineRail || 
+          clst[0].item instanceof ArcRail ||
+          clst[0].item instanceof Gear) {
+        selectedObject.itsChannel = clst[0].item;
+      }
+    }
+    if( selectedObject.itsChannel){
+      let pt = selectedObject.itsChannel.getPosition(selectedObject.itsMountLength);
+      selectedObject.x = pt.x;
+      selectedObject.y = pt.y;
+      if (selectedObject.setupIdx >= 0) {
+        setupMounts[setupMode][selectedObject.setupIdx] = selectedObject.itsMountLength;
+      }
+    }
+  }
+}
+
+function getClosest(){
+  let d = 0;
+  let candidate = [];
+  /// TODO need to check rails
+  /// TODO need to avoid selecting the child component
+  d = penRig.isClicked(mouseX, mouseY);
+  if (d > 0)  {
+    candidate.push({dist:d,item:penRig});
+  }
+
+  for ( let cr of activeConnectingRods) {
+    d = cr.isClicked(mouseX, mouseY);
+    if (d > 0 ) {
+      candidate.push({dist:d,item:cr});
+    }
+  }
+  
+  for ( let g of activeGears) {
+    d = g.isClicked(mouseX, mouseY);
+    if (d > 0 ) {
+      candidate.push({dist:d,item:g});
+    }
+  }
+
+  if (freeMode){
+    for ( let mp of mountPoints) {
+      d = mp.isClicked(mouseX, mouseY);
+      if ( d > 0 ) {
+        candidate.push({dist:d,item:mp});
+      }
+    }
+  }
+
+  for ( let mp of activeMountPoints) {
+    d = mp.isClicked(mouseX, mouseY);
+    if ( d > 0 ) {
+      candidate.push({dist:d,item:mp});
+    }
+  }
+  for ( let r of rails) {
+    d = r.isClicked(mouseX, mouseY);
+    if ( d > 0 ) {
+      candidate.push({dist:d,item:r});
+    }
+  }
+  candidate.sort((a,b)=>a.dist-b.dist);
+  return candidate;
 }
 
 function deselect() {

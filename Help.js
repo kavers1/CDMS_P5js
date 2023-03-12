@@ -3,14 +3,16 @@ let helpStartMS = {} ;//millis();
 let helpLines = [
     "Keyboard Shortcuts:",
     "",
-    "0-9    set drawing speed",
-    "a-g    change setups",
-    "arrows change gears and mount points",
-    "x      erase the paper",
-    "[ ]    change pen color",
-    "< >    change pen width",
-    "/      invert connecting rod",
-    "~      draw entire cycle",
+    "0-9        set drawing speed",
+    "a-g        change setups",
+    "arrows     change gears and mount points",
+    "x          erase the paper",
+    "[ ]        change pen color",
+    "< >        change pen width",
+    "/          invert connecting rod",
+    "~          draw entire cycle",
+    "pgup pgdwn change phase of selected gear",
+    "- +        pen up / down"
 ];
 
 function helpDraw() 
