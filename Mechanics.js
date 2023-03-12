@@ -620,15 +620,13 @@ class LineRail extends CdmsObject {
     let a2 = atan2(dy2,dx2);
     let d1 = dist(this.pt1.x,this.pt1.y,fixed.cpt.x,fixed.cpt.y);
     let d2 = dist(this.pt2.x,this.pt2.y,fixed.cpt.x,fixed.cpt.y);
-    let l = dist(this.pt1.x,this.pt1.y,this.pt2.x,this.pt2.y);
+    let le = dist(this.pt1.x,this.pt1.y,this.pt2.x,this.pt2.y);
     let adiff = abs(a1-a2);
     let r = moveable.radius + fixed.radius + meshGap;
     let mountRatio;
     if (adiff > TWO_PI)
       adiff -= TWO_PI;
     if (adiff < 0.01) {  // if rail is perpendicular to fixed circle
-      /// alt : moet dit nog geschaald worden naar notch waarden ?
-      // mountLength = r - d1
       mountRatio = (r - d1);
       // find position on line (if any) which corresponds to two radii
     } else if ( abs(this.pt2.x - this.pt1.x) < 0.01 ) {
@@ -643,18 +641,13 @@ class LineRail extends CdmsObject {
       let my2 = (-bprim - sqrt(delta)) / (2 * aprim); // use this if it's better
       let mx2 = m * my2 + c;
       if (my1 < min(this.pt1.y, this.pt2.y) || my1 > max(this.pt1.y, this.pt2.y) || 
-          dist(moveable.x, moveable.y, mx2, my2) < dist(moveable.x, moveable.y, mx1, mx2)) {
+          dist(moveable.cpt.x, moveable.cpt.y, mx2, my2) < dist(moveable.cpt.x, moveable.cpt.y, mx1, mx2)) {
         mx1 = mx2;
         my1 = my2;
       } 
       if (delta < 0) {
-        /// alt :
-        // mountLength = -1;
         mountRatio = -1;
       } else {
-        /// alt : moet dit nog geschaald worden naar notch waarden ?
-        // mountLength = dist(this.pt1.x, this.pt1.y, mx1, my1); 
-
         mountRatio = dist(this.pt1.x, this.pt1.y, mx1, my1) ;
       }
     } else { // we likely have a gear on one of the lines on the left
@@ -675,23 +668,17 @@ class LineRail extends CdmsObject {
         my1 = my2;
       }
       if (delta < 0) {
-        /// alt :
-        // mountLength = -1;
         mountRatio = -1;
       } else {
-        /// alt : moet dit nog geschaald worden naar notch waarden ?
-        // mountLength = dist(this.pt1.x, this.pt1.y, mx1, my1); 
         mountRatio = dist(this.pt1.x, this.pt1.y, mx1, my1) ;
       }
     }
-    if (mountRatio < 0 || mountRatio > l || isNaN(mountRatio) ) {
+    if (mountRatio < 0 || mountRatio > le || isNaN(mountRatio) ) {
       loadError = 1;
       mountRatio = 0;
     }
-    mountRatio = constrain(mountRatio,0,l);
-    //mountLength = mountRatio * dist(this.pt1.x,this.pt1.y,this.pt2.x,this.pt2.y);
-    //moveable.mount(this,mountLength);
-    moveable.mount(this,mountRatio);
+    mountRatio = constrain(mountRatio,0,le);
+    moveable.cpt = this.getPosition(mountRatio);
   }
 }
 
@@ -794,9 +781,12 @@ class ArcRail extends CdmsObject {
     }
 
     let mountRatio = (ma-this.begAngle)/(this.endAngle-this.begAngle);
-    if (mountRatio < 0 || mountRatio > 1)
+    if (mountRatio < 0 || mountRatio > 1){
       loadError = 1;
-    moveable.mount(this, mountRatio);
+      return;
+    }
+    moveable.cpt.mountRatio = mountRatio;
+    moveable.cpt = this.getPosition(mountRatio);
   }
 
   draw() {
@@ -860,7 +850,6 @@ class Gear extends CdmsObject {
     this.teeth = teeth;
     this.nom = nom;
     this.setupIdx = setupIdx;
-    this.radius = (this.teeth*toothRadius/PI);
     this.cpt = {x:0,y:0};
     this.phase = 0;
     this.meshGears = new Map();
@@ -876,16 +865,48 @@ class Gear extends CdmsObject {
     this.selected = false;
     this.contributesToCycle = true;
     this.itsChannel = {};
-    this.axle = null;
-    if (this.itsSetup != null) {
+/*    if (this.itsSetup != null) {
       this.notchStart = this.itsSetup.notchStart;
       this.notchEnd   = this.itsSetup.notchEnd;
     } else {
       // Make a guesstimate
       this.notchStart = max(this.radius * 0.1,16 * seventyTwoScale);
       this.notchEnd = this.radius - max(this.radius * 0.1,8 * seventyTwoScale);
-    }
+    }*/
     
+  }
+
+  get radius(){
+    return this.teeth * toothRadius / PI;
+  }
+  get x(){
+    return this.cpt.x;
+  }
+  get y(){
+    return this.cpt.y;
+  }
+  get teeth(){
+    return this._teeth;
+  }
+  get notchStart(){
+    if (this.itsSetup != null){
+      return this.itsSetup.notchStart;
+    } else {
+      // Make a guesstimate
+      return max(this.radius * 0.1,16 * seventyTwoScale);
+    }
+  }
+  get notchEnd(){
+    if (this.itsSetup != null){
+      return this.itsSetup.notchEnd;
+    } else {
+      // Make a guesstimate
+      return this.radius - max(this.radius * 0.1,8 * seventyTwoScale);
+    }
+  }
+  set teeth(value){
+    this.itsSetup = gearSetups.get(value);
+    this._teeth = value;
   }
 
   isClicked( mx,  my) {
@@ -894,9 +915,10 @@ class Gear extends CdmsObject {
   }
   
   nudge( direction,  keycode) {
-     let gearIdx = this.setupIdx;
-     let teeth = 0;
-     let oldTeeth = this.teeth;
+    loadError = 0;
+    let gearIdx = this.setupIdx;
+    let teeth = 0;
+    let oldTeeth = this.teeth;
     if (this.isShifting) {
       teeth = setupTeeth[setupMode][gearIdx] + direction;
     } else {
@@ -909,15 +931,25 @@ class Gear extends CdmsObject {
     }
     setupTeeth[setupMode][gearIdx] = teeth;
     this.teeth = teeth;
-    drawingSetup(setupMode, false);
-    /// updateSetup();
+    /// drawingSetup(setupMode, false);
+    updateSetup();
     if (loadError != 0) { // disallow invalid meshes
       // java.awt.Toolkit.getDefaultToolkit().beep();
       setupTeeth[setupMode][gearIdx] = oldTeeth;
       this.teeth = oldTeeth;
-      drawingSetup(setupMode, false);
-      /// updateSetup();
+    ///  drawingSetup(setupMode, false);
+      updateSetup();
     }
+    /*
+    if (this.itsSetup != null) {
+      this.notchStart = this.itsSetup.notchStart;
+      this.notchEnd   = this.itsSetup.notchEnd;
+    } else {
+      // Make a guesstimate
+      this.notchStart = max(this.radius * 0.1,16 * seventyTwoScale);
+      this.notchEnd = this.radius - max(this.radius * 0.1,8 * seventyTwoScale);
+    }
+    */
     selectedObject = activeGears[gearIdx];
     selectedObject.select();
   }
@@ -1031,18 +1063,15 @@ class Gear extends CdmsObject {
     } else {
       let moveable = arguments[0];
       let fixed = arguments[1];
-      let d1 = 0;
       let d2 = this.radius;
       let d = moveable.radius + fixed.radius + meshGap;
-
+      // find position on line (if any) which corresponds to two radii
       let mountRadDist = this.radius * d / d2;
       if (mountRadDist < 0 || mountRadDist > this.radius)
         loadError = 1;
       let mountNotch = this.distToNotch(mountRadDist);
 
-      /// moveable.mountRatio = mountNotch;
-      moveable.mount(this, mountNotch);
-        // find position on line (if any) which corresponds to two radii
+      moveable.mountRatio = mountNotch;
     }
   }
 
@@ -1057,26 +1086,12 @@ class Gear extends CdmsObject {
     let pt = this.itsChannel.getPosition(this.mountRatio);
     this.cpt.x = pt.x;
     this.cpt.y = pt.y;
-    if (this.axle != null){ // update axle coordinate too
-      this.axle.x = pt.x;
-      this.axle.y = pt.y;
-    }
-    if (this.pt1){
-      this.pt1.x = pt.x;
-      this.pt1.y = pt.y;
-    }
     // console.log('Recalc ',this.nom,'# r ',this.rotation,' t=',this.teeth);
   }
 
   mountOn(pt){
     this.itsChannel = pt.itsChannel;
     this.mountRatio = pt.itsMountLength;
-     
-    //this.cpt.x = pt.x;
-    //this.cpt.y = pt.y;
-    //this.axle = pt;
-    //this.pt1 = new MountPoint(this.objName + 'GRP',pt.x/inchesToPoints,pt.y/inchesToPoints);
-    //mountPoints.push(this.pt1);
     this.cpt = pt;
   }
 
@@ -1084,18 +1099,16 @@ class Gear extends CdmsObject {
     this.itsChannel = ch;
     this.mountRatio = r;
     let pt = ch.getPosition(r);
-    //this.cpt.x = pt.x;
-    //this.cpt.y = pt.y;
-    this.axle = null;
-    if (this.pt1 === undefined){
+    
+    /*if (this.pt1 === undefined){
       this.pt1 = new MountPoint(this.objName + 'GRP',pt.x/inchesToPoints,pt.y/inchesToPoints);
       mountPoints.push(this.pt1);
     }
     else{
       this.pt1.x = pt.x ;
       this.pt1.y = pt.y ;
-    }
-    this.cpt = this.pt1;
+    }*/
+    this.cpt = pt ; //this.pt1;
   }
 
   crank( pos) {
