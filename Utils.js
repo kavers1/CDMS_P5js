@@ -255,10 +255,11 @@ function dropObject() {
   if (selectedObject instanceof MountPoint ){
     if(! selectedObject.itsChannel){ // check if we dropped on a channel
       let clst = getClosest(false);
-      if (clst[0].item instanceof LineRail || 
+      if (clst[0] && (clst[0].item instanceof LineRail || 
           clst[0].item instanceof ArcRail ||
-          clst[0].item instanceof Gear) {
-        selectedObject.itsChannel = clst[0].item;
+          clst[0].item instanceof Gear)) {
+        selectedObject.itsChannel = clst[0].item; // assign contraining rail or gear
+        selectedObject.track(mouseX, mouseY); // adjust mountLength
       }
     }
     if( selectedObject.itsChannel){

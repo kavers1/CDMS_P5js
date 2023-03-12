@@ -26,7 +26,7 @@ let kGearLabelStart = 0.5*inchesToPoints;
 let kGearLabelIncr = 0.5*inchesToPoints;
 let kCRLabelIncr = 0.5*inchesToPoints;
 let kCRNotchIncr = 0.25*inchesToPoints;
-let kCRNotchStart = 0.75*inchesToPoints;
+let kCRNotchStart  = 0.75*inchesToPoints;
 let kCRLabelStart = 1*inchesToPoints;
 let kPenLabelStart = 0.5*inchesToPoints;  // was 4.75
 let kPenLabelIncr =  0.5*inchesToPoints;  // was negative
@@ -171,7 +171,7 @@ class MountPoint extends CdmsObject {
   track (x,y,free = false) {
     if (this.itsChannel && ! free){
       let ratio = this.itsChannel.nearest(createVector(x,y));
-      if (this.itsChannel instanceof  LineRail){
+      if (this.itsChannel instanceof  LineRail || this.itsChannel instanceof  ArcRail){
         this.itsMountLength = ratio;
       }
       else if(this.itsChannel instanceof Gear){
@@ -714,7 +714,7 @@ class ArcRail extends CdmsObject {
   // nearest point on rail
   nearest(pt){
     // is point between start and end angle ? else which is closest
-    let a = atan2(pt.x - this.cx,pt.y -this.cy);
+    let a = atan2(pt.y -this.cy,pt.x - this.cx);
     if (a >= this.begAngle && a <= this.endAngle) {
       return constrain((a-this.begAngle)/(this.endAngle - this.begAngle),0,1);
     } else if(a < this.begAngle){
@@ -724,6 +724,13 @@ class ArcRail extends CdmsObject {
     }
 
 
+  }
+
+  isClicked( mx,  my) 
+  {
+    let d = dist(mx,my,this.cx,this.cy);
+    let a = atan2(my - this.cy,mx - this.cx);
+    return abs(d-this.rad) < kSelectionDeadband && a >= this.begAngle && a <= this.endAngle;
   }
 
   snugTo( moveable,  fixed) { // get the movable gear mounted on this rail snug to the fixed gear
@@ -850,7 +857,9 @@ class Gear extends CdmsObject {
     this.teeth = teeth;
     this.nom = nom;
     this.setupIdx = setupIdx;
-    this.cpt = {x:0,y:0};
+    this._cpt = new MountPoint(this.objName + 'CPT',0,0);
+    mountPoints.push(this._cpt);
+    //this.cpt = undefined;
     this.phase = 0;
     this.meshGears = new Map();
     this.stackGears = [];
@@ -908,10 +917,25 @@ class Gear extends CdmsObject {
     this.itsSetup = gearSetups.get(value);
     this._teeth = value;
   }
+  set cpt(value){
+    if (value instanceof MountPoint){
+      this._cpt = value;
+    }
+    else{
+      this._cpt.x = value.x;
+      this._cpt.y = value.y;
+    }
+  }
+  get cpt(){
+    return this._cpt;
+  }
 
   isClicked( mx,  my) {
+    if (this.cpt){
     let d  = dist(mx, my, this.cpt.x, this.cpt.y);
     return  d <= this.radius+kSelectionDeadband?abs(d - this.radius):-1;
+    }
+    else return -1;
   }
   
   nudge( direction,  keycode) {
@@ -1100,15 +1124,14 @@ class Gear extends CdmsObject {
     this.mountRatio = r;
     let pt = ch.getPosition(r);
     
-    /*if (this.pt1 === undefined){
-      this.pt1 = new MountPoint(this.objName + 'GRP',pt.x/inchesToPoints,pt.y/inchesToPoints);
-      mountPoints.push(this.pt1);
+    if (this.cpt === undefined){
+      this.cpt = new MountPoint(this.objName + 'CPT',pt.x/inchesToPoints,pt.y/inchesToPoints);
+      mountPoints.push(this.cpt);
     }
-    else{
-      this.pt1.x = pt.x ;
-      this.pt1.y = pt.y ;
-    }*/
-    this.cpt = pt ; //this.pt1;
+    else {
+      this.cpt.x = pt.x ; //this.pt1;
+      this.cpt.y = pt.y ; //this.pt1;
+    }
   }
 
   crank( pos) {
@@ -1141,6 +1164,7 @@ class Gear extends CdmsObject {
     stroke(getColor(0));// sets color '#000000'
 
     push();
+      
       translate(this.cpt.x, this.cpt.y);
       rotate(this.rotation+this.phase);
 

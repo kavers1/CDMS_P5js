@@ -610,9 +610,6 @@ function draw()
       for (var mp of mountPoints){
         mp.draw();
       }
-//      for (var mp of activeMountPoints){
-//        mp.draw();
-//      }
     }
     // discPoint.draw();
     // console.log('gears');
@@ -846,6 +843,9 @@ function mousePressed()
       penRig.getSelectionCursor(mouseX,mouseY);
     } else if( selection instanceof MountPoint){
       cursor('../assets/RailPoint.png',16,8);
+      if (freeMode){ // remove channel constraint will be reinstated at drop
+        selection.itsChannel = null;
+      }
     } else{
       cursor(ARROW);
     }
