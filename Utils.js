@@ -255,10 +255,18 @@ function dropObject() {
   if (selectedObject instanceof MountPoint ){
     if(! selectedObject.itsChannel){ // check if we dropped on a channel
       let clst = getClosest(false);
+      while (clst[0] &&  // remove selected object or its owning gear
+             (clst[0].item === selectedObject ||
+              clst[0].item.cpt === selectedObject)){
+                clst.shift();
+      }
       if (clst[0] && (clst[0].item instanceof LineRail || 
           clst[0].item instanceof ArcRail ||
           clst[0].item instanceof Gear)) {
         selectedObject.itsChannel = clst[0].item; // assign contraining rail or gear
+        if (selectedObject.owner) {
+          selectedObject.owner.itsChannel = selectedObject.itsChannel; /// TODO this should not be the case a gear should not have a channel but refer to ht channel of the mountpoint
+        }
         selectedObject.track(mouseX, mouseY); // adjust mountLength
       }
     }

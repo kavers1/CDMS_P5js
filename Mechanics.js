@@ -145,7 +145,7 @@ class MountPoint extends CdmsObject {
   }
   
   isClicked( mx,  my) {
-    let p = this.getPosition();
+    let p = this.getPosition(0);
     let d = dist(mx, my, p.x, p.y); 
     return d <= this.radius? d : -1;
   }
@@ -154,7 +154,10 @@ class MountPoint extends CdmsObject {
     
     if (!free && r !== null && r !== undefined){
       if (this.itsChannel != null) {
-        return this.itsChannel.getPosition(this.itsMountLength);
+        let pt = this.itsChannel.getPosition(this.itsMountLength);
+        this.x = pt.x;
+        this.y = pt.y;
+        return pt;
       } else {
         // console.log('Getpos mount #',this.typeStr ,' x:',this.x,' y:',this.y);
         return createVector(this.x,this.y);
@@ -678,6 +681,7 @@ class LineRail extends CdmsObject {
       mountRatio = 0;
     }
     mountRatio = constrain(mountRatio,0,le);
+    moveable.cpt.itsMountLength = mountRatio;
     moveable.cpt = this.getPosition(mountRatio);
   }
 }
@@ -730,7 +734,7 @@ class ArcRail extends CdmsObject {
   {
     let d = dist(mx,my,this.cx,this.cy);
     let a = atan2(my - this.cy,mx - this.cx);
-    return abs(d-this.rad) < kSelectionDeadband && a >= this.begAngle && a <= this.endAngle;
+    return abs(d-this.rad) < kSelectionDeadband && a >= this.begAngle && a <= this.endAngle ? abs(d-this.rad) : -1;
   }
 
   snugTo( moveable,  fixed) { // get the movable gear mounted on this rail snug to the fixed gear
@@ -792,7 +796,7 @@ class ArcRail extends CdmsObject {
       loadError = 1;
       return;
     }
-    moveable.cpt.mountRatio = mountRatio;
+    moveable.cpt.itsMountLength = mountRatio;
     moveable.cpt = this.getPosition(mountRatio);
   }
 
@@ -859,6 +863,7 @@ class Gear extends CdmsObject {
     this.setupIdx = setupIdx;
     this._cpt = new MountPoint(this.objName + 'CPT',0,0);
     mountPoints.push(this._cpt);
+    this._cpt.owner = this; // carefull this is a self reference and needs to be deleted when discarded
     //this.cpt = undefined;
     this.phase = 0;
     this.meshGears = new Map();
@@ -1164,8 +1169,10 @@ class Gear extends CdmsObject {
     stroke(getColor(0));// sets color '#000000'
 
     push();
+
+      let cpt = this.cpt.getPosition(0);
       
-      translate(this.cpt.x, this.cpt.y);
+      translate(cpt.x, cpt.y);
       rotate(this.rotation+this.phase);
 
       let r1 = this.radius - 0.07 * inchesToPoints;

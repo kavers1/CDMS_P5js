@@ -9,7 +9,15 @@
 //// let inchesToPoints = 72; // controls display scaling
 let seventyTwoScale = inchesToPoints / 72.0; // Don't change this
 //// let mmToInches = 1/25.4;
-
+/*let setupTeeth = [
+  ['DT',150,'CR',72],
+  ['DT',120,'CR',94,'AN',90,'FR',34],
+  [150,50,100,34,40],
+  [144, 100, 72],
+  [150, 98, 100],
+  [150, 100, 74],
+  [150,50,100,34,40,50,50],
+];*/
 let setupTeeth = [
     [150,72],
     [120,94,90,34],
@@ -260,6 +268,9 @@ function drawingSetup( setupIdx,  resetPaper)
   penRaised = true;
   myFrameCount = 0;
 
+  for( let g of activeGears){
+    g._cpt.owner = null; // remove circular link to allow garbage collection
+  }
 /* clear arrays */
   activeGears.length = 0;
   activeMountPoints.length = 0;
@@ -273,10 +284,7 @@ function drawingSetup( setupIdx,  resetPaper)
     crank = addGear(1,"Crank");
     crankRail = rails[10];
     pivotRail = rails[1];
-    let crmount = new MountPoint("CRMP", crankRail, 0, 0);
-    activeMountPoints.push(crmount);
-    crank.mountOn(crmount);
-    //crank.mount(crankRail,0);
+    crank.mount(crankRail,0);
     turnTable.mount(discPoint, 0);
     crank.snugTo(turnTable);
     crank.meshTo(turnTable);
@@ -529,7 +537,7 @@ function draw()
 {
   
   if (freeMode){
-    themeColor = color('#ffff00');
+    themeColor = color('#ffff00a0');
   }
   else {
     themeColor =selectedTheme;
@@ -594,8 +602,12 @@ function draw()
     // display number of cycles
     // TODO fix font size and color result based on number of cycle (RED,orange,green background)
     fill(0, 0, 255);
-    textFont(gFont);
+    textFont('Courier',24);
+    textStyle(BOLD);
     textAlign(CENTER, CENTER);
+    textStyle(NORMAL);
+    textFont('Courier',12);
+    
     text( str(computeCyclicRotations()),titlePic.width + 40,height-titlePic.height/2);
 
     fill(foregroundColor); //set color '#c8c8c8'
@@ -847,7 +859,7 @@ function mousePressed()
         selection.itsChannel = null;
       }
     } else{
-      cursor(ARROW);
+      //cursor(ARROW);
     }
 
   }
