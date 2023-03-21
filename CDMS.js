@@ -58,6 +58,122 @@ let setupInversions = [
   [false],
 ];
 
+let setupScenarios = [
+  // setup 0    
+    ["M:CM:CT",0,       //mount point named CM mounted on CT @ 0
+     "G:TT:CM",150,0,    //gear 150 teeth named TT (turntable) mounted on CM pahse 0
+     "M:CRP:LR9",0,     //mount point named CRP mounted on LR9 @ 0
+     "G:CR:CRP:TT",72,0, //gear 72 teeth named CR (crank) mounted on CRP snug to TT phase 0
+     "M:AP:LR1",0,      //mount point named SP mounted on LR1 @ 0
+     "M:SP:CR",3.3838,  //mount point named AP mounted on gear CR @ 3.3838
+     "R:R1:SP:AP",      //connection rod name R1 from SP to AP
+     "M:EX:R1",10.625,  //mount point named EX mounted on crod R1 @ 10.625
+     "P:PN:EX",3.375,-55 // Pen named PN mounted on EX lengthe 3.375 angle -55
+    ],
+  // setup 1
+    ["M:CM:CT",0,
+     "G:TT:CM",120,0,
+     "M:CRP:LR2",0,
+     "G:CR:CRP:TT",94,0,
+     "M:MA:LR9",0,
+     "G:GA:MA:TT",90,0,
+     "M:MF:LR1",0,
+     "G:GF:MF:CR",34,0,
+     "M:SP:GF",1.5,
+     "M:AP:GA",4.4798,
+     "R:R1:SP:AP",
+     "M:EX:R1",10,
+     "P:PN:EX",4.5,90
+    ],
+  // setup 2
+    ["M:CM:CT",0,
+     "G:TT:CM",150,0,
+     "M:CRP:LR8",0,
+     "G:CR:CRP:TT",50,0,
+     "M:MA:AR1",0,
+     "G:GA:MA:TT",100,0,
+     "G:GH:MA:GA",34,0,  // can we check if same mount point is used to get stack on ?
+     "M:MO:GA",0,
+     "G:GO:MO:GH",40,0,
+     "M:SP:LR1",0.8973,
+     "M:AP:GO",1.5,
+     "R:R1:SP:AP",
+     "M:EX:R1",12,
+     "P:PN:EX",7.5,-90,
+    ],
+    // setup 3
+    ["M:CM:CT",0,
+     "G:TT:CM",144,0,
+     "M:CRP:LR9",0,
+     "G:CR:CRP:TT",100,0,
+     "M:MA:LR7",0,
+     "G:GA:MA:TT",72,0,
+     "M:SP:CR",4,
+     "M:AP:GA",4,
+     "R:R1:SP:AP",
+     "M:SP2:LR1",0.8,
+     "M:AP2:R1",2,
+     "R:R2:SP2:AP2",
+     "M:EX:R2",8.625,
+     "P:PN:EX",4.75,-65
+    ],
+  // setup 4
+    ["M:CM:CT",0,
+     "G:TT:CM",150,0,
+     "M:MA:LR9",0,
+     "G:GA:MA:TT",98,0,
+     "M:MB:LR6",0,
+     "G:GB:MB:TT",100,0,
+     "M:SP:LR1",0.7,
+     "M:AP:GB",2,
+     "R:R1:SP:AP",
+     "M:SP2:BA",4,
+     "M:AP2:R1",8,
+     "R:R2:SP2:AP2",
+     "M:EX:R2",9,
+     "P:PN:EX",4.5,-90
+   ],
+  // setup 5
+    ["M:CM:CT",0,
+     "G:TT:CM",150,0,
+     "M:MA:LR9",0,
+     "G:GA:MA:TT",100,0,
+     "M:MB:LR6",0,
+     "G:GB:MB:TT",74,0,
+     "M:SP:LR1",0.7,
+     "M:AP:GB",3.3838,
+     "R:R1:SP:AP",
+     "M:SP2:GA",4,
+     "M:AP2:R1",0.21,
+     "R:R2:SP2:AP2",
+     "M:SP3:R2",12.75,
+     "M:AP3:R1",5.5,
+     "R:R3:SP2:AP2",
+     "M:EX:R3",5.25,
+     "P:PN:EX",3.125,-65
+    ],
+  // setup 6
+    ["M:CM:CT",0,
+     "G:TT:CM",150,0,
+     "M:MA:LR8",0,
+     "G:GA:MA:TT",50,0,
+     "M:MB:AR2",0.315,
+     "G:AT:MB:GA",100,0,
+     "G:AH:MB:AT",34,0,
+     "M:MD:LR9",0,
+     "G:OR:AT:AH",40,0,
+     "M:ME:LR2",0.835,
+     "G:FC:ME:TT",50,0,
+     "M:MF:LR1",0.39,
+     "G:FG:MF:FC",50,0,
+     "M:SP:FG",2.5,
+     "M:AP:OR",1,
+     "R:R1:SP:AP",
+     "M:EX:R1",14,
+     "P:PN:EX",6.5,90
+    ]
+  ];
+
 let bWidth = 18.14;
 let bHeight = 11.51;
 let pCenterX = 8.87;
@@ -209,6 +325,9 @@ function addGear( setupIdx,  nom)
 function addMP( setupIdx,  nom,  chan)
 {
   let mp = new MountPoint(nom, chan, setupMounts[setupMode][setupIdx], setupIdx);
+  if(chan instanceof Gear){
+    chan.contributesToCycle = true;
+  }
   activeMountPoints.push(mp);
   return mp;
 }
@@ -236,9 +355,113 @@ function updateGearSetup(anchor){
   for (let g of anchor.meshGears.values()){
     updateGearSetup(g);
   }
+  for (let g of anchor.stackGears.values()){
+    updateGearSetup(g);
+  }
 }
 
+function drawingScenario(setupIdx,resetPaper){
+  let aRail = {};
+  let bRail = {};
+  let aGear = {};
+  let bGear = {};
+  let slidePoint2 = {};
+  let anchorPoint2 = {};
+  let cRod2 = {};
+  let slidePoint3 = {};
+  let anchorPoint3 = {};
+  let cRod3 = {};
+  let anchorTable = {};
+  let anchorHub = {};
+  let orbit = {};
+  let fulcrumCrank = {};
+  let fulcrumGear = {};
+  
+  loadError = 0;
 
+  if (resetPaper) {
+    isStarted = false;
+  }
+  isStarted = false;
+  penRaised = true;
+  myFrameCount = 0;
+
+  for( let g of activeGears){
+    g._cpt.owner = null; // remove circular link to allow garbage collection
+  }
+/* clear arrays */
+//  activeGears.length = 0;
+//  activeMountPoints.length = 0;
+//  activeConnectingRods.length = 0;
+  let name = "";
+  let mountname = "";
+  let mountname2 = "";
+  setupIdx = setupMode;
+  let scenario = setupScenarios[setupIdx];
+  for (let idx=0 ; idx < scenario.length;idx++){
+    let setupStr = scenario[idx];
+    let setupElem = setupStr.split(":");
+    name = setupElem[1];
+    mountname = setupElem[2];
+    if (setupElem.length > 3){
+      mountname2 = setupElem[3];
+    }
+    else{
+      mountname2 = null;
+    }
+
+    switch(setupElem[0]){
+      case "M": // add mountpoint
+            idx++;
+            let mountlength = scenario[idx];
+            let mp = addMountPointByName(name,mountname,mountlength);
+          break;
+      case "G": // add gear
+            idx++;
+            let teeth = scenario[idx];
+            idx++;
+            let phase = scenario[idx];
+            let g = addGearByName(name,mountname,teeth,phase);
+            /// TODO how to know that we have to stack ??
+            if (mountname2){
+            console.log( "Snug to ", mountname2);
+            // g.snugTo(getGearByName(mountname2));
+            // g.meshTo(getGearByName(mountname2));
+            }
+          break;
+      case "R": // add rod
+            let rod = addConnectionRodByName(name,mountname,mountname2);
+          break;
+      case "P": // add pen
+            idx++;
+            let length = scenario[idx];
+            idx++;
+            let angle = scenario[idx];
+            let pen = addPenByName(name,mountname,length,angle);
+          break;
+      case "H": // add hinge
+          break;
+    }
+
+  }
+}
+
+function addMountPointByName(name,mountname,mountlength){
+  console.log("Add mountpoint ",name," on ",mountname," length ",mountlength);
+}
+function addGearByName(name,mountname,teeth,phase){
+  console.log("Add new gear ", name," with ", teeth, "teeth, mounted on ",mountname, " rotated by ", phase," rads");
+}
+function getGearByName(name){
+  console.log("Find gear ",name);
+}
+function addConnectionRodByName(name,mountpoint,mountpoint2){
+  console.log("Add connection rod ",name, " from ", mountpoint, " to ", mountpoint2);
+}
+function addPenByName(name,mountpoint,length,angle){
+  console.log("Add pen ",name, " at ", mountpoint, " length ", length, " angle ", angle);
+}
+            
 function drawingSetup( setupIdx,  resetPaper)
 {
   let aRail = {};
@@ -299,7 +522,7 @@ function drawingSetup( setupIdx,  resetPaper)
 
   case 1: // moving fulcrum & separate crank
     turnTable = addGear(0,"Turntable"); 
-    crank = addGear(1,"Crank");    crank.contributesToCycle = false;
+    crank = addGear(1,"Crank");
     let anchor = addGear(2,"Anchor");
     fulcrumGear = addGear(3,"FulcrumGear");
     crankRail = rails[1];
@@ -334,15 +557,13 @@ function drawingSetup( setupIdx,  resetPaper)
     // Always need these...
     turnTable = addGear(0,"Turntable");
     crank = addGear(1,"Crank");    
-    crank.contributesToCycle = false;
-  
+    
     // These are optional
     anchorTable = addGear(2,"AnchorTable");
     anchorHub = addGear(3,"AnchorHub"); 
-    anchorHub.contributesToCycle = false;
     orbit = addGear(4,"Orbit");
   
-    orbit.isMoving = true;
+    //orbit.isMoving = true;
   
     // Setup gear relationships and mount points here...
     crank.mount(crankRail, 0);
@@ -355,9 +576,8 @@ function drawingSetup( setupIdx,  resetPaper)
     anchorTable.meshTo(crank);
 
     anchorHub.stackTo(anchorTable);
-    anchorHub.isFixed = true;
-
-    orbit.mount(anchorTable,0);
+    
+    orbit.mount(anchorTable,1.5);
     orbit.snugTo(anchorHub);
     orbit.meshTo(anchorHub);
   
@@ -470,42 +690,38 @@ function drawingSetup( setupIdx,  resetPaper)
     let fulcrumGearRail = rails[0];
     
     // Always need these...
-    turnTable = addGear(0,"Turntable");
-    crank = addGear(1,"Crank");                            
-    crank.contributesToCycle = false;
-  
+    turnTable = addGear(0,"Turntable");//150
+    
+    crank = addGear(1,"Crank");       // 50               
+    
     // These are optional
-    anchorTable = addGear(2,"AnchorTable");
-    anchorHub = addGear(3,"AnchorHub");                    
-    anchorHub.contributesToCycle = false;
-    orbit = addGear(4,"Orbit");
+    anchorTable = addGear(2,"AnchorTable"); //100
+    anchorHub = addGear(3,"AnchorHub");     //34          
+    orbit = addGear(4,"Orbit");             //40
   
-    fulcrumCrank = addGear(5,"FulcrumCrank");        
-    fulcrumCrank.contributesToCycle = false;       
-    fulcrumGear = addGear(6,"FulcrumOrbit");
+    fulcrumCrank = addGear(5,"FulcrumCrank");//50        
+    fulcrumGear = addGear(6,"FulcrumOrbit");//50
   
-    orbit.isMoving = true;
+    //orbit.isMoving = true;
   
     // Setup gear relationships and mount points here...
-    crank.mount(crankRail, 0);
-    turnTable.mount(discPoint, 0);
+    crank.mount(crankRail, 0);  //LR9
+    turnTable.mount(discPoint, 0); 
     crank.snugTo(turnTable);
     crank.meshTo(turnTable);
   
-    anchorTable.mount(anchorRail,0.315);
+    anchorTable.mount(anchorRail,0.315);//LR4
     anchorTable.snugTo(crank);
     anchorTable.meshTo(crank);
 
     anchorHub.stackTo(anchorTable);
-    anchorHub.isFixed = true;
-
+    
     orbit.mount(anchorTable,0);
     orbit.snugTo(anchorHub);
     orbit.meshTo(anchorHub);
 
-
-    fulcrumCrank.mount(fulcrumCrankRail, 0.735+0.1);
-    fulcrumGear.mount(fulcrumGearRail, 0.29-0.1);
+    fulcrumCrank.mount(fulcrumCrankRail, 0.735+0.1); //LR1
+    fulcrumGear.mount(fulcrumGearRail, 0.29-0.1); //LR0
     fulcrumCrank.snugTo(turnTable);
     fulcrumGear.snugTo(fulcrumCrank);    
 
@@ -522,6 +738,7 @@ function drawingSetup( setupIdx,  resetPaper)
     break;
 
   }
+  turnTable.contributesToCycle = true;
   turnTable.showMount = false;
   
 }

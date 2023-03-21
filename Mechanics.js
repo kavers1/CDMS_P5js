@@ -864,30 +864,21 @@ class Gear extends CdmsObject {
     this._cpt = new MountPoint(this.objName + 'CPT',0,0);
     mountPoints.push(this._cpt);
     this._cpt.owner = this; // carefull this is a self reference and needs to be deleted when discarded
-    //this.cpt = undefined;
+    // this should be replaced by "name" references
+    
     this.phase = 0;
     this.meshGears = new Map();
     this.stackGears = [];
 
     this.rotation =0;
     this.phase = 0;
-    this.mountRatio = 0;
     this.doFill = true;
     this.showMount = true;
-    this.isMoving = false; // gear's position is moving
-    this.isFixed = false; // gear does not rotate or move
+    //this.isMoving = false; // gear's position is moving can only happen if center point is mounted on a gear
+    this.isFixed = false; // gear does rotate or move
     this.selected = false;
-    this.contributesToCycle = true;
+    this.contributesToCycle = false; // is false if no mount point on gear except when it is stacked or it is the turn table
     this.itsChannel = {};
-/*    if (this.itsSetup != null) {
-      this.notchStart = this.itsSetup.notchStart;
-      this.notchEnd   = this.itsSetup.notchEnd;
-    } else {
-      // Make a guesstimate
-      this.notchStart = max(this.radius * 0.1,16 * seventyTwoScale);
-      this.notchEnd = this.radius - max(this.radius * 0.1,8 * seventyTwoScale);
-    }*/
-    
   }
 
   get radius(){
@@ -933,6 +924,9 @@ class Gear extends CdmsObject {
   }
   get cpt(){
     return this._cpt;
+  }
+  get isMoving(){
+    return (this._cpt.itsChannel instanceof Gear);
   }
 
   isClicked( mx,  my) {
@@ -1045,6 +1039,7 @@ class Gear extends CdmsObject {
   
 
 // this gives the position of the connection point 
+// it accepts the distance measured on the notches.
   getPosition( r) { 
     let d = this.notchToDist(r); // kGearLabelStart+(r-1)*kGearLabelIncr;
 //    console.log('Getpos ',this.nom,' # x:',this.x + cos(this.rotation + this.phase) * d, ' y:',this.y + sin(this.rotation + this.phase) * d);
@@ -1100,22 +1095,20 @@ class Gear extends CdmsObject {
         loadError = 1;
       let mountNotch = this.distToNotch(mountRadDist);
 
-      moveable.mountRatio = mountNotch;
+      moveable.cpt.itsMountLength = mountNotch;
+      moveable.cpt.getPosition();
     }
   }
 
   stackTo( parent) {
     parent.stackGears.push(this);
-    this.cpt.x = parent.cpt.x;
-    this.cpt.y = parent.cpt.y;
+    this._cpt = parent._cpt;
+    this.isFixed = true; // stacked gear are always fixed
     this.phase = parent.phase;
   }
 
-  recalcPosition() { // used for orbiting gears
-    let pt = this.itsChannel.getPosition(this.mountRatio);
-    this.cpt.x = pt.x;
-    this.cpt.y = pt.y;
-    // console.log('Recalc ',this.nom,'# r ',this.rotation,' t=',this.teeth);
+  recalcPosition() { // update center point of orbiting gears
+    this.cpt.getPosition(0);
   }
 
   mountOn(pt){
@@ -1126,14 +1119,24 @@ class Gear extends CdmsObject {
 
   mount( ch,  r =0.0) {
     this.itsChannel = ch;
-    this.mountRatio = r;
+    // we add a mount point to the channel 
+    // if it is a gear it will contribute to the number of rotations
+    if(ch instanceof Gear){
+      ch.contributesToCycle = true;
+    }
+    //this.mountRatio = r;
     let pt = ch.getPosition(r);
     
     if (this.cpt === undefined){
       this.cpt = new MountPoint(this.objName + 'CPT',pt.x/inchesToPoints,pt.y/inchesToPoints);
+      this.cpt.itsChannel = ch; // it is the mountpoint which bound to the channel
+      this.cpt.itsMountLength = r;
       mountPoints.push(this.cpt);
     }
     else {
+      this.cpt.itsChannel = ch; // it is the mountpoint which bound to the channel
+      this.cpt.itsMountLength = r;
+
       this.cpt.x = pt.x ; //this.pt1;
       this.cpt.y = pt.y ; //this.pt1;
     }

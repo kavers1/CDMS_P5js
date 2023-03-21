@@ -495,6 +495,8 @@ function getSetupMode()
       // alert("Help is coming soon...");
     } else if (!cmd.localeCompare("freehand")) {
       toggleFreeMode();
+    }else if (!cmd.localeCompare("addpen")) {
+      drawingScenario(setupMode,false);
     }
   }
 
