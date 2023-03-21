@@ -72,6 +72,7 @@ class MountPoint extends CdmsObject {
     this.strokeColor = '#323232';
     this.strokeSelectedColor = '#646464';
     this.owner = null;
+    this.isMount4 = "";
 
     if (arguments.length == 3){
       this.typeStr = typeStr;
@@ -215,11 +216,13 @@ class MountPoint extends CdmsObject {
 class ConnectingRod extends CdmsObject {
   constructor( itsSlide,  itsAnchor,  rodNbr)
   {
-    super("cr",rodNbr);
+    super("cr","CR"+rodNbr);
     this.rodNbr = rodNbr;
     this.itsSlide = itsSlide;
+    itsSlide.isMount4 = this.objName;
     itsSlide.radius = kMPSlideRadius;
     this.itsAnchor = itsAnchor;
+    itsAnchor.isMount4 = this.objName;
     this.armAngle = 0;
     this.selected=false;
     this.isInverted = false;  
@@ -373,11 +376,12 @@ class ConnectingRod extends CdmsObject {
 class PenRig extends CdmsObject {
   
   constructor( len,  angle,  itsMP) {
-    super("mp","");
+    super("mp","PEN");
     this.len = len; // in pen notch units
     this.angle = angle;
     this.itsRod =  itsMP.itsChannel;
     this.itsMP = itsMP;
+    this.itsMP.isMount4 = this.objName;
 /// ????
     let ap = itsMP.getPosition();
     let ep = this.getPosition();
@@ -395,18 +399,7 @@ class PenRig extends CdmsObject {
   distToNotch( d) {
     return 1 + (d - kPenLabelStart) / kPenLabelIncr;
   }
-  /*
-  this.itsMP.draw();
-    let ap = this.itsMP.getPosition();
-    let ep = this.getPosition();
-
-    let a = atan2(ap.y-ep.y,ap.x-ep.x);
-    let d = 6 * inchesToPoints;
-    ap.x = ep.x + cos(a)*d;
-    ap.y = ep.y + sin(a)*d;
-
-  */
-
+  
   getPosition( ) {
     if (arguments.length == 0){
       let ap = this.itsMP.getPosition();
@@ -580,8 +573,10 @@ class LineRail extends CdmsObject {
     super("LR");
     this.selected = false;
     this.pt1 = new MountPoint(this.objName + 'P1',x1,y1);
+    this.pt1.isMount4 = this.objName;
     mountPoints.push(this.pt1);
     this.pt2 = new MountPoint(this.objName + 'P2',x2,y2);
+    this.pt2.isMount4 = this.objName;
     mountPoints.push(this.pt2);
     this.x1 = x1 * inchesToPoints;
     this.y1 = y1 * inchesToPoints;
@@ -697,10 +692,13 @@ class ArcRail extends CdmsObject {
     this.endAngle = endAngle;  
     this.pt1 = new MountPoint(this.objName + 'CTR',cx,cy);
     this.pt1.radius = 6;
+    this.pt1.isMount4 = this.objName;
     mountPoints.push(this.pt1);
     this.pt1 = new MountPoint(this.objName + 'P1',cx+cos(this.begAngle)*rad,cy+sin(this.begAngle)*rad);
+    this.pt1.isMount4 = this.objName;
     mountPoints.push(this.pt1);
     this.pt2 = new MountPoint(this.objName + 'P2',cx+cos(this.endAngle)*rad,cy+sin(this.endAngle)*rad);
+    this.pt2.isMount4 = this.objName;
     mountPoints.push(this.pt2);
 
   }
@@ -1136,6 +1134,7 @@ class Gear extends CdmsObject {
     else {
       this.cpt.itsChannel = ch; // it is the mountpoint which bound to the channel
       this.cpt.itsMountLength = r;
+      this.cpt.isMount4 = this.nom;
 
       this.cpt.x = pt.x ; //this.pt1;
       this.cpt.y = pt.y ; //this.pt1;

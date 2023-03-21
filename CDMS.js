@@ -324,7 +324,7 @@ function addGear( setupIdx,  nom)
 
 function addMP( setupIdx,  nom,  chan)
 {
-  let mp = new MountPoint(nom, chan, setupMounts[setupMode][setupIdx], setupIdx);
+  let mp = new MountPoint(nom, chan, setupIdx<0?0:setupMounts[setupMode][setupIdx], setupIdx);
   if(chan instanceof Gear){
     chan.contributesToCycle = true;
   }
@@ -507,7 +507,9 @@ function drawingSetup( setupIdx,  resetPaper)
     crank = addGear(1,"Crank");
     crankRail = rails[10];
     pivotRail = rails[1];
-    crank.mount(crankRail,0);
+    crpt = addMP(-1,"CRPT",crankRail);
+    crank.mountOn(crpt);
+    //crank.mount(crankRail,0);
     turnTable.mount(discPoint, 0);
     crank.snugTo(turnTable);
     crank.meshTo(turnTable);
