@@ -486,7 +486,8 @@ function getSetupMode()
         let setupMode = int(subcmd);
         deselect();
         penRaised = true;
-        drawingSetup(setupMode, false);
+        drawingScenario(setupScenarios[setupMode],false);
+        //drawingSetup(setupMode, false);
         doSaveSetup();
     } else if (!cmd.localeCompare("snapshot")) {
       doSnapshot();

@@ -73,7 +73,7 @@ let setupScenarios = [
   // setup 1
     ["M:CM:CT",0,
      "G:TT:CM",120,0,
-     "M:CRP:LR2",0,
+     "M:CRP:LR1",0,
      "G:CR:CRP:TT",94,0,
      "M:MA:LR9",0,
      "G:GA:MA:TT",90,0,
@@ -87,12 +87,12 @@ let setupScenarios = [
     ],
   // setup 2
     ["M:CM:CT",0,
-     "G:TT:CM",150,0,
+     "G:TT:CM",120,0,
      "M:CRP:LR8",0,
      "G:CR:CRP:TT",50,0,
-     "M:MA:AR1",0,
-     "G:GA:MA:TT",100,0,
-     "G:GH:MA:GA",34,0,  // can we check if same mount point is used to get stack on ?
+     "M:MA:AR3",0,
+     "G:GA:MA:CR",90,0,
+     "G:GH:MA",34,0,  // can we check if same mount point is used to get stack on ?
      "M:MO:GA",0,
      "G:GO:MO:GH",40,0,
      "M:SP:LR1",0.8973,
@@ -120,17 +120,17 @@ let setupScenarios = [
   // setup 4
     ["M:CM:CT",0,
      "G:TT:CM",150,0,
-     "M:MA:LR9",0,
+     "M:MA:LR10",0,
      "G:GA:MA:TT",98,0,
-     "M:MB:LR6",0,
+     "M:MB:LR7",0,
      "G:GB:MB:TT",100,0,
      "M:SP:LR1",0.7,
      "M:AP:GB",2,
      "R:R1:SP:AP",
-     "M:SP2:BA",4,
+     "M:SP2:GA",4,
      "M:AP2:R1",8,
      "R:R2:SP2:AP2",
-     "M:EX:R2",9,
+     "M:EX:R2",3,
      "P:PN:EX",4.5,-90
    ],
   // setup 5
@@ -148,7 +148,7 @@ let setupScenarios = [
      "R:R2:SP2:AP2",
      "M:SP3:R2",12.75,
      "M:AP3:R1",5.5,
-     "R:R3:SP2:AP2",
+     "R:R3:SP3:AP3",
      "M:EX:R3",5.25,
      "P:PN:EX",3.125,-65
     ],
@@ -156,15 +156,15 @@ let setupScenarios = [
     ["M:CM:CT",0,
      "G:TT:CM",150,0,
      "M:MA:LR8",0,
-     "G:GA:MA:TT",50,0,
-     "M:MB:AR2",0.315,
+     "G:GA:MA:TT",34,0,
+     "M:MB:AR4",0.315,
      "G:AT:MB:GA",100,0,
-     "G:AH:MB:AT",34,0,
-     "M:MD:LR9",0,
-     "G:OR:AT:AH",40,0,
-     "M:ME:LR2",0.835,
+     "G:AH:MB",34,0,
+     "M:MD:AT",0,
+     "G:OR:MD:AH",40,0,
+     "M:ME:LR1",0.835,
      "G:FC:ME:TT",50,0,
-     "M:MF:LR1",0.39,
+     "M:MF:LR0",0.39,
      "G:FG:MF:FC",50,0,
      "M:SP:FG",2.5,
      "M:AP:OR",1,
@@ -283,13 +283,13 @@ function setup() {
   
   paper = createGraphics(int(paperWidth), int(paperWidth));
 
-  discPoint = new MountPoint("DP", pCenterX, pCenterY);
-  
-  rails.push(new LineRail(2.22, 10.21,0.51,0.6));
-  rails.push(new LineRail(3.1, 10.23, 3.1,0.5));
-  rails.push(new LineRail(8.74, 2.41, 9.87,0.47));
-  rails.push(new ArcRail(pCenterX, pCenterY, 6.54, radians(-68), radians(-5)));
-  rails.push(new ArcRail(8.91, 3.91, 7.79, radians(-25), radians(15)));
+  discPoint = new MountPoint("CT", pCenterX, pCenterY);
+  rails.push(discPoint); // center point special case of rail
+  rails.push(new LineRail(2.22, 10.21,0.51,0.6,"LR0"));
+  rails.push(new LineRail(3.1, 10.23, 3.1,0.5,"LR1"));
+  rails.push(new LineRail(8.74, 2.41, 9.87,0.47,"LR2"));
+  rails.push(new ArcRail(pCenterX, pCenterY, 6.54, radians(-68), radians(-5),"AR3"));
+  rails.push(new ArcRail(8.91, 3.91, 7.79, radians(-25), radians(15),"AR4"));
 
   let rbegD = [
     4.82, 4.96, 4.96, 4.96, 4.96, 4.96
@@ -306,12 +306,13 @@ function setup() {
       let y1 = pCenterY + sin(rang[i])*rbegD[i];
       let x2 = pCenterX + cos(rang[i])*rendD[i];
       let y2 = pCenterY + sin(rang[i])*rendD[i];
-      rails.push(new LineRail(x1, y1, x2, y2));
+      rails.push(new LineRail(x1, y1, x2, y2,"LR"+(5+i)));
   }
 
   setupButtons();
   doLoadSetup();
-  drawingSetup(setupMode, true);
+  drawingScenario(setupScenarios[setupMode],true);
+  //drawingSetup(setupMode, true);
   buttonFeedback();
 }
 
@@ -323,7 +324,10 @@ function addGear( setupIdx,  nom)
 }
 
 function addMP( setupIdx,  nom,  chan)
-{
+{ 
+  if (typeof chan === 'string' || chan instanceof String) {
+    chan = getCmdsObj(chan);
+  }
   let mp = new MountPoint(nom, chan, setupIdx<0?0:setupMounts[setupMode][setupIdx], setupIdx);
   if(chan instanceof Gear){
     chan.contributesToCycle = true;
@@ -332,19 +336,28 @@ function addMP( setupIdx,  nom,  chan)
   return mp;
 }
 
-function addCR( rodNbr,  slide,  anchor)
+function addCR( name,  slide,  anchor)
 {
-  let cr = new ConnectingRod(slide, anchor, rodNbr);
+  if (typeof slide === 'string' || slide instanceof String) {
+    slide = getCmdsObj(slide);
+  }
+  if (typeof anchor === 'string' || anchor instanceof String) {
+    anchor = getCmdsObj(anchor);
+  }
+  let cr = new ConnectingRod(slide, anchor, -1, name);
   activeConnectingRods.push(cr);
   return cr;
 }
 
 function addPen( penMount) {
+  if (typeof penMount === 'string' || penMount instanceof String) {
+    penMount = getCmdsObj(penMount);
+  }
   return new PenRig(setupPens[setupMode][0], setupPens[setupMode][1], penMount);
 }
 
 function updateSetup(){
-  updateGearSetup(turnTable);
+  updateGearSetup(activeGears[0]);
 }
 
 function updateGearSetup(anchor){
@@ -360,23 +373,19 @@ function updateGearSetup(anchor){
   }
 }
 
-function drawingScenario(setupIdx,resetPaper){
-  let aRail = {};
-  let bRail = {};
-  let aGear = {};
-  let bGear = {};
-  let slidePoint2 = {};
-  let anchorPoint2 = {};
-  let cRod2 = {};
-  let slidePoint3 = {};
-  let anchorPoint3 = {};
-  let cRod3 = {};
-  let anchorTable = {};
-  let anchorHub = {};
-  let orbit = {};
-  let fulcrumCrank = {};
-  let fulcrumGear = {};
-  
+function documentScenario(){
+  if (activeGears.length > 0){
+    let scenario = activeGears[0].documentScenario();
+    for (let cr of activeConnectingRods){
+      scenario = scenario + cr.documentScenario();
+    }
+    scenario = scenario + penRig.documentScenario();
+    /// TODO store scenario
+    return scenario;
+  }
+}
+
+function drawingScenario(scenario,resetPaper){
   loadError = 0;
 
   if (resetPaper) {
@@ -385,19 +394,23 @@ function drawingScenario(setupIdx,resetPaper){
   isStarted = false;
   penRaised = true;
   myFrameCount = 0;
-
+/// TODO should be removed the double linking is no longer needed since we use named references
   for( let g of activeGears){
     g._cpt.owner = null; // remove circular link to allow garbage collection
   }
 /* clear arrays */
-//  activeGears.length = 0;
-//  activeMountPoints.length = 0;
-//  activeConnectingRods.length = 0;
+  console.log("clear items")
+  activeGears.length = 0;
+  activeMountPoints.length = 0;
+  activeConnectingRods.length = 0;
+  penRig = null;
+  draw();
   let name = "";
   let mountname = "";
   let mountname2 = "";
-  setupIdx = setupMode;
-  let scenario = setupScenarios[setupIdx];
+  ///TODO can't we provide the scenario as an argument, then we can setup rails by the same function
+  //setupIdx = setupMode;
+  //let scenario = setupScenarios[setupIdx];
   for (let idx=0 ; idx < scenario.length;idx++){
     let setupStr = scenario[idx];
     let setupElem = setupStr.split(":");
@@ -420,13 +433,17 @@ function drawingScenario(setupIdx,resetPaper){
             idx++;
             let teeth = scenario[idx];
             idx++;
-            let phase = scenario[idx];
-            let g = addGearByName(name,mountname,teeth,phase);
+            let phaseShift = scenario[idx];
+            let g = addGearByName(name,mountname,teeth,phaseShift);
+            if (g.cpt.itsChannel.objName === "CT" || g.cpt.objName === "CT"){
+              //turnTable = g;
+              g.showMount = false;
+            }
             /// TODO how to know that we have to stack ??
             if (mountname2){
-            console.log( "Snug to ", mountname2);
-            // g.snugTo(getGearByName(mountname2));
-            // g.meshTo(getGearByName(mountname2));
+              console.log( "Snug to ", mountname2);
+              g.snugTo(getGearByName(mountname2));
+              g.meshTo(getGearByName(mountname2));
             }
           break;
       case "R": // add rod
@@ -439,27 +456,47 @@ function drawingScenario(setupIdx,resetPaper){
             let angle = scenario[idx];
             let pen = addPenByName(name,mountname,length,angle);
           break;
+      case "L": // add lineRail
+          break;
+      case "A": // add arcRail
+          break;
       case "H": // add hinge
           break;
     }
-
+    draw();
   }
+  
 }
 
 function addMountPointByName(name,mountname,mountlength){
   console.log("Add mountpoint ",name," on ",mountname," length ",mountlength);
+  let mp = addMP(-1,name,mountname);
+  mp.itsMountLength = mountlength;
 }
-function addGearByName(name,mountname,teeth,phase){
-  console.log("Add new gear ", name," with ", teeth, "teeth, mounted on ",mountname, " rotated by ", phase," rads");
+function addGearByName(name,mountname,teeth,phaseShift){
+  console.log("Add new gear ", name," with ", teeth, "teeth, mounted on ",mountname, " rotated by ", phaseShift," rads");
+  let gear = addGear(2,name);
+  gear.teeth = teeth;
+  gear.phaseShift = phaseShift;
+  if(getCmdsObj(mountname).isMount4) {
+    gear.stackTo(getCmdsObj(mountname).isMount4);
+  }
+  else{
+    gear.mountOn(mountname);
+  }
+  return gear;
 }
 function getGearByName(name){
   console.log("Find gear ",name);
+  return getCmdsObj(name);
 }
 function addConnectionRodByName(name,mountpoint,mountpoint2){
   console.log("Add connection rod ",name, " from ", mountpoint, " to ", mountpoint2);
+  cRod = addCR( name, mountpoint, mountpoint2);
 }
 function addPenByName(name,mountpoint,length,angle){
   console.log("Add pen ",name, " at ", mountpoint, " length ", length, " angle ", angle);
+  penRig = addPen(mountpoint);
 }
             
 function drawingSetup( setupIdx,  resetPaper)
@@ -505,21 +542,21 @@ function drawingSetup( setupIdx,  resetPaper)
   case 0: // simple set up with one gear for pen arm
     turnTable = addGear(0,"Turntable"); 
     crank = addGear(1,"Crank");
-    crankRail = rails[10];
-    pivotRail = rails[1];
-    crpt = addMP(-1,"CRPT",crankRail);
-    crank.mountOn(crpt);
+    //crankRail = rails[10];
+    //pivotRail = rails[1];
+    crpt = addMP(-1,"CRPT","LR10");
+    crank.mountOn("CRPT");
     //crank.mount(crankRail,0);
-    turnTable.mount(discPoint, 0);
-    crank.snugTo(turnTable);
-    crank.meshTo(turnTable);
+    turnTable.mountOn(getCmdsObj("CT"));
+    crank.snugTo("Turntable");
+    crank.meshTo(getCmdsObj("Turntable"));
 
-    slidePoint = addMP(0, "SP", pivotRail);
-    anchorPoint = addMP(1, "AP", crank);
-    cRod = addCR(0, slidePoint, anchorPoint);
+    slidePoint = addMP(0, "SP", getCmdsObj("LR1"));
+    anchorPoint = addMP(1, "AP", getCmdsObj("Crank"));
+    cRod = addCR(0, getCmdsObj("SP"), getCmdsObj("AP"));
 
     penMount = addMP(2, "EX", cRod);
-    penRig = addPen(penMount);
+    penRig = addPen(getCmdsObj("EX"));
     break;
 
   case 1: // moving fulcrum & separate crank
@@ -530,17 +567,24 @@ function drawingSetup( setupIdx,  resetPaper)
     crankRail = rails[1];
     anchorRail = rails[10];
     pivotRail = rails[0];
-    crank.mount(crankRail, 0); // will get fixed by snugto
-    anchor.mount(anchorRail,0);
-    fulcrumGear.mount(pivotRail, 0); // will get fixed by snugto
-    turnTable.mount(discPoint, 0);
+    turnTable.mountOn(discPoint);
 
+    crpt = addMP(-1,"CRPT",crankRail);
+    //crank.mount(crankRail, 0); // will get fixed by snugto
+    crank.mountOn(crpt); // will get fixed by snugto
     crank.snugTo(turnTable);
-    anchor.snugTo(turnTable);
-    fulcrumGear.snugTo(crank);    
-
     crank.meshTo(turnTable);
+
+    apt = addMP(-1,"ANPT",anchorRail);
+    //anchor.mount(anchorRail,0);
+    anchor.mountOn(apt);
+    anchor.snugTo(turnTable);
     anchor.meshTo(turnTable);
+
+    pvpt = addMP(-1,"PVPT",pivotRail);
+    //fulcrumGear.mount(pivotRail, 0); // will get fixed by snugto
+    fulcrumGear.mountOn(pvpt); // will get fixed by snugto
+    fulcrumGear.snugTo(crank);    
     fulcrumGear.meshTo(crank);   
 
     slidePoint = addMP(0, "SP", fulcrumGear);
@@ -761,14 +805,16 @@ function draw()
   else {
     themeColor =selectedTheme;
   }
-
-
+  if (activeGears[0]){
+    turnTable = activeGears[0];
+  }
   // Crank the machine a few times, based on current passesPerFrame - this generates new gear positions and drawing output
   for ( let p = 0; p < passesPerFrame; ++p) {
     // console.log('drawing ',p,' of ',passesPerFrame,' passes');
     if (isMoving) {
       myFrameCount += drawDirection;
       // console.log('drawing direction:',drawDirection,' framecount :',myFrameCount);
+      
       turnTable.crank(myFrameCount*crankSpeed); // The turntable is always the root of the propulsion chain, since it is the only required gear.
       // console.log('get penrig coordinates');
       // work out coords on unrotated paper
@@ -777,8 +823,8 @@ function draw()
       let dy = nib.y - pCenterY*inchesToPoints;
       let a = atan2(dy, dx);
       let l = sqrt(dx*dx + dy*dy);
-      let px = paperWidth/2 + cos(a-turnTable.rotation-turnTable.phase)*l*paperScale;
-      let py = paperWidth/2 + sin(a-turnTable.rotation-turnTable.phase)*l*paperScale;
+      let px = paperWidth/2 + cos(a-turnTable.rotation-turnTable.phase - turnTable.phaseShift)*l*paperScale;
+      let py = paperWidth/2 + sin(a-turnTable.rotation-turnTable.phase - turnTable.phaseShift)*l*paperScale;
       //paper.beginDraw();
       if (!isStarted) {
         // paper.clear();
@@ -818,17 +864,7 @@ function draw()
     image(titlePic, 20, height-titlePic.height);
     // console.log('draw labels');
     drawFulcrumLabels();
-    // display number of cycles
-    // TODO fix font size and color result based on number of cycle (RED,orange,green background)
-    fill(0, 0, 255);
-    textFont('Courier',24);
-    textStyle(BOLD);
-    textAlign(CENTER, CENTER);
-    textStyle(NORMAL);
-    textFont('Courier',12);
     
-    text( str(computeCyclicRotations()),titlePic.width + 40,height-titlePic.height/2);
-
     fill(foregroundColor); //set color '#c8c8c8'
     noStroke();
 
@@ -844,21 +880,35 @@ function draw()
     }
     // discPoint.draw();
     // console.log('gears');
-    for ( let g of activeGears) {
-      if (g != turnTable)
-        g.draw();
-    }
+    activeGears.forEach((item,index,arr)=>{
+      if(index>0){
+        item.draw();
+      }
+    });
     // console.log('draw turntabel');
-    turnTable.draw(); // draw this last
+    if (turnTable instanceof Gear) {
+      turnTable.draw(); // draw this last
+    }
     // console.log('draw penrig');
-    penRig.draw();
+    if (penRig) {
+      penRig.draw();
+    }
+    // display number of cycles
+    fill(0, 0, 255);
+    textFont('Courier',24);
+    textStyle(BOLD);
+    textAlign(CENTER, CENTER);
+    text( str(Math.floor(turnTable.rotation / 2 / PI)) +"/"+ str(computeCyclicRotations()),titlePic.width * 2,height-titlePic.height/2);
+    
+    textStyle(NORMAL);
+    textFont('Courier',12);
   
     push();
       translate(pCenterX*inchesToPoints, pCenterY*inchesToPoints);
-      rotate(turnTable.rotation+turnTable.phase);
+      rotate(turnTable.rotation+turnTable.phase+turnTable.phaseShift);
       image(paper, -paperWidth/(2*paperScale), -paperWidth/(2*paperScale), paperWidth/paperScale, paperWidth/paperScale);
     pop();
-
+ 
 
     helpDraw(); // draw help if needed
 
@@ -921,7 +971,8 @@ function keyPressed() {
      let setups ='abcdefg';
      let setup = setups.indexOf(key);
      if( setup < 0) break;
-     drawingSetup(setup, false);
+     drawingScenario(setupScenarios[setup],false);
+     //drawingSetup(setup, false);
      doSaveSetup();
      buttonFeedback();
      break;
@@ -978,12 +1029,12 @@ function keyPressed() {
       break;
     case 33: //pgdwn
       if(selectedObject && selectedObject instanceof Gear){
-        selectedObject.phase -= 2*Math.PI/selectedObject.teeth;
+        selectedObject.phaseShift -= 2*Math.PI/selectedObject.teeth;
       }
       break;
     case 34: //pgup
       if(selectedObject && selectedObject instanceof Gear){
-        selectedObject.phase += 2*Math.PI/selectedObject.teeth;
+        selectedObject.phaseShift += 2*Math.PI/selectedObject.teeth;
       }
       break;
     default:

@@ -53,19 +53,19 @@ function buttonFeedback()
 {
 /// TODO
   // p5.getitem ????
-  var processingInstance = getItem('CDMS');
-  var setupMode = 0;
-  var passesPerFrame = 0;
-  var drawDirection = 0;
-  var isMoving = 0;
-
+//  var processingInstance = getItem('CDMS');
+//  var setupMode = 0;
+//  var passesPerFrame = 0;
+//  var drawDirection = 0;
+//  var isMoving = 0;
+/*
   if (processingInstance !== null && processingInstance !== undefined){
     setupMode = processingInstance.getSetupMode();
     passesPerFrame = processingInstance.getPassesPerFrame();
     drawDirection = processingInstance.getDrawDirection();
     isMoving = processingInstance.getIsMoving();
   } 
-
+*/
   var playMode = 'pause';
   if (isMoving && passesPerFrame != 0) {
     if (drawDirection == -1) {

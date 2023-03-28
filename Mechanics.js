@@ -34,11 +34,21 @@ let kPenNotchIncr =  0.25*inchesToPoints; // was negative
 let kPaperRad = 4.625*inchesToPoints;
 let kSelectionDeadband = 5;
 
+function getCmdsObj(name){
+   let rslt = rails.concat(mountPoints,activeMountPoints,activeGears,activeConnectingRods).filter(item => item.objName == name);
+
+   return rslt[0];
+   //return allCdmsObjects.filter(item => item.objName == name);
+}
+function hasMountPoint( name){
+  return mountPoints.concat(activeMountPoints).filter(item => item.itsChannel && item.itsChannel.objName == name);
+}
+
 class CdmsObject{
   constructor(type,name){
     this.objType = type;
     if (name === undefined){
-      this.objName = type + allCdmsObjects.length;
+      this.objName = type.toUpperCase() + allCdmsObjects.length;
     }
     else {
       this.objName = name;
@@ -62,8 +72,8 @@ class CdmsObject{
 
 class MountPoint extends CdmsObject {
   
-  constructor( typeStr,  x,  y) {
-    super("m",typeStr);
+  constructor( nom,  x,  y) {
+    super("m",nom);
     this.radius=kMPDefaultRadius;
     this.typeStr = "MP";
     this.isFixed = false;
@@ -75,7 +85,7 @@ class MountPoint extends CdmsObject {
     this.isMount4 = "";
 
     if (arguments.length == 3){
-      this.typeStr = typeStr;
+      this.typeStr = nom;
       this.itsChannel = null;
       this.itsMountLength = 0;
       this.isFixed = true;
@@ -87,7 +97,7 @@ class MountPoint extends CdmsObject {
       let chanl = arguments[1];
       let mountRatio = arguments[2];
       let setupIdx = arguments[3];
-      this.typeStr = typeStr;
+      this.typeStr = nom;
       this.itsChannel = chanl;
       this.itsMountLength = mountRatio;// multiply with length ??
       this.setupIdx = setupIdx;
@@ -95,6 +105,10 @@ class MountPoint extends CdmsObject {
       this.x = pt.x;
       this.y = pt.y;
     } 
+  }
+  documentScenario(){
+    console.log("\"M:",this.objName,":",this.itsChannel.objName,"\",",this.itsMountLength);
+    return "\"M:"+this.objName+":"+this.itsChannel.objName+"\","+this.itsMountLength+",";
   }
   
   chooseBestDirection( direction,  keycode,  incr) 
@@ -214,9 +228,9 @@ class MountPoint extends CdmsObject {
 }
 
 class ConnectingRod extends CdmsObject {
-  constructor( itsSlide,  itsAnchor,  rodNbr)
+  constructor( itsSlide,  itsAnchor,  rodNbr, nom)
   {
-    super("cr","CR"+rodNbr);
+    super("cr",nom);
     this.rodNbr = rodNbr;
     this.itsSlide = itsSlide;
     itsSlide.isMount4 = this.objName;
@@ -226,10 +240,19 @@ class ConnectingRod extends CdmsObject {
     this.armAngle = 0;
     this.selected=false;
     this.isInverted = false;  
-    
+    // handled by inverting anchor and slide
     if (setupInversions[setupMode][rodNbr]){
       this.invert();
     }
+  }
+  documentScenario(){
+    let sl = this.itsSlide.documentScenario();
+    let an = this.itsAnchor.documentScenario();
+    console.log("\"R:",this.objName,":",this.itsSlide.objName,",",this.itsAnchor.objName,"\",");
+    return sl+an+"\"R:"+this.objName+":"+this.itsSlide.objName+","+this.itsAnchor.objName+"\",";
+    //for(let mp of hasMountPoint(this.objName)){
+    //  mp.documentScenario();
+    //}
   }
   
   getPosition( r) {
@@ -391,7 +414,12 @@ class PenRig extends CdmsObject {
     this.lastRotation = -1;
     this.lastKey = -1;
   }
-
+  documentScenario(){
+    let sc = this.itsMP.documentScenario();
+    console.log("\"P:",this.objName,":",this.itsMP.objName,"\",",this.len,",",this.angle);
+    return sc + "\"P:" +this.objName+":"+this.itsMP.objName+"\","+this.len+","+this.angle+",";
+  }
+  
   notchToDist( n) {
     return kPenLabelStart+(n-1) * kPenLabelIncr;
   }
@@ -569,8 +597,8 @@ class PenRig extends CdmsObject {
 /// why not a specialized connecting rod ? with no moving AP or SP
 /// makes adapting the rail easier since the AP and SP can be moved
 class LineRail extends CdmsObject {
-  constructor( x1,  y1,  x2,   y2) {
-    super("LR");
+  constructor( x1,  y1,  x2,   y2, nom) {
+    super("LR",nom);
     this.selected = false;
     this.pt1 = new MountPoint(this.objName + 'P1',x1,y1);
     this.pt1.isMount4 = this.objName;
@@ -682,8 +710,8 @@ class LineRail extends CdmsObject {
 }
 
 class ArcRail extends CdmsObject {
-  constructor( cx,  cy,  rad,  begAngle,  endAngle) {
-    super("AR");
+  constructor( cx,  cy,  rad,  begAngle,  endAngle,nom) {
+    super("AR",nom);
     this.selected = false;
     this.cx = cx*inchesToPoints;
     this.cy = cy*inchesToPoints;
@@ -859,24 +887,19 @@ class Gear extends CdmsObject {
     this.teeth = teeth;
     this.nom = nom;
     this.setupIdx = setupIdx;
-    this._cpt = new MountPoint(this.objName + 'CPT',0,0);
-    mountPoints.push(this._cpt);
-    this._cpt.owner = this; // carefull this is a self reference and needs to be deleted when discarded
-    // this should be replaced by "name" references
-    
     this.phase = 0;
     this.meshGears = new Map();
     this.stackGears = [];
+    this.meshedWith = "";
 
     this.rotation =0;
     this.phase = 0;
+    this.phaseShift = 0;
     this.doFill = true;
     this.showMount = true;
-    //this.isMoving = false; // gear's position is moving can only happen if center point is mounted on a gear
     this.isFixed = false; // gear does rotate or move
     this.selected = false;
     this.contributesToCycle = false; // is false if no mount point on gear except when it is stacked or it is the turn table
-    this.itsChannel = {};
   }
 
   get radius(){
@@ -927,6 +950,31 @@ class Gear extends CdmsObject {
     return (this._cpt.itsChannel instanceof Gear);
   }
 
+  documentScenario(meshed){
+    let scenario = "";
+    if (this.cpt.isMount4 == this.objName){
+      scenario = this.cpt.documentScenario();
+    }
+    for (let mp of hasMountPoint(this.name)){
+      scenario = scenario + mp.documentScenario();
+    }
+    if (meshed){
+      console.log("\"G:",this.objName,":",this.cpt.objName,":",meshed,"\",",this.teeth,",",this.phaseShift);
+      scenario = scenario + "\"G:" +this.objName+":"+this.cpt.objName+":"+meshed+"\","+this.teeth+","+this.phaseShift+",";
+    }
+    else{
+      console.log("\"G:",this.objName,":",this.cpt.objName,"\",",this.teeth,",",this.phaseShift);
+      scenario = scenario + "\"G:" +this.objName+":"+this.cpt.objName+"\","+this.teeth+","+this.phaseShift+",";
+    }
+    for(let g of this.stackGears){
+      scenario = scenario + g.documentScenario();
+    }
+    for(let g of this.meshGears.values()){
+      scenario = scenario + g.documentScenario(this.objName);
+    }
+    return scenario;
+  }
+
   isClicked( mx,  my) {
     if (this.cpt){
     let d  = dist(mx, my, this.cpt.x, this.cpt.y);
@@ -940,10 +988,10 @@ class Gear extends CdmsObject {
     let gearIdx = this.setupIdx;
     let teeth = 0;
     let oldTeeth = this.teeth;
-    if (this.isShifting) {
+    if (isShifting) {
       teeth = setupTeeth[setupMode][gearIdx] + direction;
     } else {
-      teeth = this.findNextTeeth(setupTeeth[setupMode][gearIdx], direction);
+      teeth = this.findNextTeeth(this.teeth, direction);
     }
     if (teeth < 24) {
       teeth = 150;
@@ -961,18 +1009,7 @@ class Gear extends CdmsObject {
     ///  drawingSetup(setupMode, false);
       updateSetup();
     }
-    /*
-    if (this.itsSetup != null) {
-      this.notchStart = this.itsSetup.notchStart;
-      this.notchEnd   = this.itsSetup.notchEnd;
-    } else {
-      // Make a guesstimate
-      this.notchStart = max(this.radius * 0.1,16 * seventyTwoScale);
-      this.notchEnd = this.radius - max(this.radius * 0.1,8 * seventyTwoScale);
-    }
-    */
-    selectedObject = activeGears[gearIdx];
-    selectedObject.select();
+    
   }
   // TODO check code below
   // nearest point on rail
@@ -980,10 +1017,10 @@ class Gear extends CdmsObject {
     
     let xc = this.cpt.x;
     let yc = this.cpt.y;
-    let x1 = xc + this.notchStart * cos(this.rotation+this.phase);
-    let y1 = yc + this.notchStart * sin(this.rotation+this.phase);
-    let x2 = xc + this.notchEnd * cos(this.rotation+this.phase);
-    let y2 = yc + this.notchEnd * sin(this.rotation+this.phase);
+    let x1 = xc + this.notchStart * cos(this.rotation+this.phase+this.phaseShift);
+    let y1 = yc + this.notchStart * sin(this.rotation+this.phase+this.phaseShift);
+    let x2 = xc + this.notchEnd * cos(this.rotation+this.phase+this.phaseShift);
+    let y2 = yc + this.notchEnd * sin(this.rotation+this.phase+this.phaseShift);
     let xp = pt.x;
     let yp = pt.y;
     let l = dist(x1,y1,x2,y2);
@@ -1018,7 +1055,7 @@ class Gear extends CdmsObject {
   }
  
   findNextTeeth( teeth,  direction) {
-    let gTeeth = (this == turnTable? ttTeeth : rgTeeth);
+    let gTeeth = (this == activeGears[0]? ttTeeth : rgTeeth);
 
     if (direction == 1) {
         for ( let i = 0; i < gTeeth.length; ++i) {
@@ -1042,13 +1079,17 @@ class Gear extends CdmsObject {
     let d = this.notchToDist(r); // kGearLabelStart+(r-1)*kGearLabelIncr;
 //    console.log('Getpos ',this.nom,' # x:',this.x + cos(this.rotation + this.phase) * d, ' y:',this.y + sin(this.rotation + this.phase) * d);
 
-    return createVector(this.cpt.x + cos(this.rotation + this.phase) * d, this.cpt.y + sin(this.rotation + this.phase) * d);
+    return createVector(this.cpt.x + cos(this.rotation+this.phase+this.phaseShift) * d, this.cpt.y + sin(this.rotation+this.phase+this.phaseShift) * d);
   }  
 
   meshTo( parent) {
+    if (typeof parent === 'string' || parent instanceof String) {
+      parent = getCmdsObj(parent);
+    }
     if (!parent.meshGears.has(this.nom)) {  
       parent.meshGears.set(this.nom,this);
     }
+    this.meshedWith = parent.objName;
 
     // work out phase for gear meshing so teeth render interlaced
     let meshAngle = atan2(this.cpt.y - parent.cpt.y, this.cpt.x - parent.cpt.x); // angle where gears are going to touch (on parent gear)
@@ -1059,12 +1100,12 @@ class Gear extends CdmsObject {
     if (iMeshAngle >= TWO_PI)
       iMeshAngle -= TWO_PI;
 
-    let parentMeshTooth = (meshAngle - parent.phase) * parent.teeth / TWO_PI; // tooth on parent, taking parent's phase into account
+    let parentMeshTooth = (meshAngle - parent.phase - parent.phaseShift) * parent.teeth / TWO_PI; // tooth on parent, taking parent's phase into account
     
-    // We want to insure that difference mod 1 is exactly .5 to insure a good mesh
+    // We want to ensure that difference mod 1 is exactly .5 to ensure a good mesh
     parentMeshTooth -= floor(parentMeshTooth);
     
-    this.phase = (meshAngle + PI) + (parentMeshTooth + 0.5) * TWO_PI / this.teeth;
+    this.phase = ((meshAngle + PI) + (parentMeshTooth + 0.5) * TWO_PI / this.teeth);
   }
   
   
@@ -1080,11 +1121,21 @@ class Gear extends CdmsObject {
   snugTo() {
     if (arguments.length == 1){
     // Find position in our current channel which is snug to the fixed gear
+      
       let anchor = arguments[0];
-      this.itsChannel.snugTo(this, anchor);
+      if (typeof anchor === 'string' || anchor instanceof String) {
+        anchor = getCmdsObj(anchor);
+      }
+      this.cpt.itsChannel.snugTo(this, anchor);
     } else {
       let moveable = arguments[0];
+      if (typeof moveable === 'string' || moveable instanceof String) {
+        moveable = getCmdsObj(moveable);
+      }
       let fixed = arguments[1];
+      if (typeof fixed === 'string' || fixed instanceof String) {
+        fixed = getCmdsObj(fixed);
+      }
       let d2 = this.radius;
       let d = moveable.radius + fixed.radius + meshGap;
       // find position on line (if any) which corresponds to two radii
@@ -1099,10 +1150,13 @@ class Gear extends CdmsObject {
   }
 
   stackTo( parent) {
+    if (typeof parent === 'string' || parent instanceof String) {
+      parent = getCmdsObj(parent);
+    }
     parent.stackGears.push(this);
     this._cpt = parent._cpt;
     this.isFixed = true; // stacked gear are always fixed
-    this.phase = parent.phase;
+    this.phaseShift = parent.phaseShift;
   }
 
   recalcPosition() { // update center point of orbiting gears
@@ -1110,19 +1164,19 @@ class Gear extends CdmsObject {
   }
 
   mountOn(pt){
-    this.itsChannel = pt.itsChannel;
-    this.mountRatio = pt.itsMountLength;
+    if (typeof pt === 'string' || pt instanceof String) {
+      pt = getCmdsObj(pt);
+    }
     this.cpt = pt;
+    pt.isMount4 = this.objName;
   }
 
   mount( ch,  r =0.0) {
-    this.itsChannel = ch;
     // we add a mount point to the channel 
     // if it is a gear it will contribute to the number of rotations
     if(ch instanceof Gear){
       ch.contributesToCycle = true;
     }
-    //this.mountRatio = r;
     let pt = ch.getPosition(r);
     
     if (this.cpt === undefined){
@@ -1175,7 +1229,7 @@ class Gear extends CdmsObject {
       let cpt = this.cpt.getPosition(0);
       
       translate(cpt.x, cpt.y);
-      rotate(this.rotation+this.phase);
+      rotate(this.rotation+this.phase+this.phaseShift);
 
       let r1 = this.radius - 0.07 * inchesToPoints;
       let r2 = this.radius + 0.07 * inchesToPoints;
@@ -1207,7 +1261,7 @@ class Gear extends CdmsObject {
       }
       endShape();
 
-      if (this == turnTable) {  // draw paper
+      if (this == activeGears[0]) {  // draw paper
         noStroke();
         fill(255,192); // set color '#ffffffc0' papercolor
         beginShape();
