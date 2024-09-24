@@ -1,5 +1,5 @@
 
-/* not neeeded in js
+/* not needed in js
 interface Channel {
   PVector getPosition(float r);
   void draw();
