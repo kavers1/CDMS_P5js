@@ -181,7 +181,7 @@ let pCenterY = 6.61;
 let toothRadius = 0.0956414*inchesToPoints;
 let meshGap = 1.5*mmToInches*inchesToPoints; // 1.5 mm gap needed for meshing gears
 
-let  gFont = {};
+let gFont = {};
 let hFont = {};
 let nFont = {};
 let titlePic = {};
